@@ -51,6 +51,7 @@ python -m http.server 8000
 
 🧪 Testes Unitários
 O core matemático foi construído isolando a lógica pura do bindgen do JS. Isso permite rodar a suíte de validação estatística nativamente em x86:
+<img width="358" height="886" alt="image" src="https://github.com/user-attachments/assets/ffac4aae-583f-459d-8bd5-8bc285e367a0" />
 
 
 ```bash
