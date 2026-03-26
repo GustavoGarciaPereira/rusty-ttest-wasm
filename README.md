@@ -33,7 +33,7 @@ Ideal para testes rápidos de hipóteses no dia a dia, como:
 
 1. Clone o repositório:
    ```bash
-   git clone [https://github.com/SEU-USUARIO/rusty-ttest-wasm.git](https://github.com/SEU-USUARIO/rusty-ttest-wasm.git)
+   git clone [https://github.com/GustavoGarciaPereira/rusty-ttest-wasm.git](https://github.com/GustavoGarciaPereira/rusty-ttest-wasm.git)
    cd rusty-ttest-wasm
 
 
