@@ -1,0 +1,48 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [ main ] # ou 'master', dependendo de como está sua branch principal
+
+# Concede permissões para o GitHub Actions ler o código e publicar no Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código 🛎️
+        uses: actions/checkout@v4
+
+      - name: Instalar Rust 🦀
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Instalar wasm-pack 📦
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Compilar WebAssembly 🏗️
+        run: wasm-pack build --target web
+
+      - name: Configurar GitHub Pages ⚙️
+        uses: actions/configure-pages@v4
+
+      - name: Upload dos artefatos 📡
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.' # Faz upload da pasta raiz (onde estão o index.html e a pasta pkg/)
+
+      - name: Deploy para o GitHub Pages 🚀
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,13 @@
+# Rust build artifacts
+/target/
+
+# wasm-pack output
+/pkg/
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
