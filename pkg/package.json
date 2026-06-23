@@ -1,0 +1,14 @@
+{
+  "name": "rusty-ttest-wasm",
+  "version": "0.1.0",
+  "files": [
+    "rusty_ttest_wasm_bg.wasm",
+    "rusty_ttest_wasm.js",
+    "rusty_ttest_wasm.d.ts"
+  ],
+  "module": "rusty_ttest_wasm.js",
+  "types": "rusty_ttest_wasm.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}

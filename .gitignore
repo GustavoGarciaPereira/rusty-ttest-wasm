@@ -1,8 +1,7 @@
 # Rust build artifacts
 /target/
 
-# wasm-pack output
-/pkg/
+# wasm-pack output (committed for GitHub Pages deployment)
 
 # Editor
 .vscode/
