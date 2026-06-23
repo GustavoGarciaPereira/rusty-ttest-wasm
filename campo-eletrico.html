@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Campo Elétrico — rusty-ttest-wasm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    .hidden { display: none !important; }
+    small.hint { color: var(--pico-muted-color); display: block; margin-top: -0.75rem; margin-bottom: 0.75rem; }
+
+    #field-canvas {
+      display: block;
+      margin-top: 1rem;
+      border-radius: var(--pico-border-radius);
+      border: 1px solid var(--pico-muted-border-color);
+      width: 100%;
+      max-width: 600px;
+      height: auto;
+    }
+    .field-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      align-items: flex-end;
+      margin-bottom: 0.75rem;
+    }
+    .field-controls label {
+      margin-bottom: 0;
+    }
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p>
+      <a href="index.html">&larr; Voltar ao menu</a>
+      <button id="btn-theme-toggle" class="secondary" style="float:right; font-size:1.2rem;" title="Alternar tema claro/escuro">🌙</button>
+    </p>
+    <h1>🧲 Mapa de Campo Elétrico</h1>
+    <p>Simulação 2D do campo gerado por cargas pontuais — Rust + WASM + Canvas</p>
+  </header>
+
+  <main>
+    <article>
+      <label for="charges-input">Cargas (JSON)</label>
+      <textarea id="charges-input" rows="3">[{"x": 200, "y": 200, "q": 1}, {"x": 400, "y": 200, "q": -1}]</textarea>
+      <small class="hint">Array de objetos com <code>x</code>, <code>y</code> (px) e <code>q</code> (carga, + ou −)</small>
+
+      <div class="field-controls">
+        <div>
+          <label for="k-slider">Constante k</label>
+          <input type="range" id="k-slider" min="1" max="1000" value="100" />
+          <output id="k-value">100</output>
+        </div>
+        <div>
+          <label for="scale-input">Escala</label>
+          <input type="number" id="scale-input" value="1.0" step="0.1" min="0.1" style="width:6rem;" />
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button id="btn-render-field">Renderizar Campo</button>
+        <button id="btn-random-charges" class="secondary">➕ Adicionar Carga Aleatória</button>
+      </div>
+
+      <canvas id="field-canvas" width="600" height="400"></canvas>
+    </article>
+
+    <div id="error-box" class="hidden">
+      <article style="border-color: var(--pico-color-red-500);">
+        <strong>Erro:</strong> <span id="error-msg"></span>
+      </article>
+    </div>
+  </main>
+
+  <script type="module">
+    import init, { compute_electric_field }
+      from './pkg/rusty_ttest_wasm.js';
+
+    await init();
+
+    // ── Theme toggle ──────────────────────────────────────────────────────────
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('btn-theme-toggle');
+
+    // Restore saved theme
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') {
+      html.setAttribute('data-theme', saved);
+    }
+    themeBtn.textContent = html.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+
+    themeBtn.addEventListener('click', () => {
+      const current = html.getAttribute('data-theme');
+      const next = current === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      themeBtn.textContent = next === 'light' ? '☀️' : '🌙';
+    });
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const chargesInput = document.getElementById('charges-input');
+    const kSlider      = document.getElementById('k-slider');
+    const kValueOut    = document.getElementById('k-value');
+    const scaleInput   = document.getElementById('scale-input');
+    const renderBtn    = document.getElementById('btn-render-field');
+    const fieldCanvas  = document.getElementById('field-canvas');
+    const errorBox     = document.getElementById('error-box');
+    const errorMsg     = document.getElementById('error-msg');
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+
+    // ── k slider live display ─────────────────────────────────────────────────
+    kSlider.addEventListener('input', () => {
+      kValueOut.textContent = kSlider.value;
+    });
+
+    // ── Add random charge to existing list ───────────────────────────────────
+    const randomBtn = document.getElementById('btn-random-charges');
+
+    randomBtn.addEventListener('click', () => {
+      try {
+        // Parse existing charges (or start fresh if empty/invalid)
+        let charges;
+        const raw = chargesInput.value.trim();
+        if (raw) {
+          charges = JSON.parse(raw);
+          if (!Array.isArray(charges)) charges = [];
+        } else {
+          charges = [];
+        }
+
+        const w = fieldCanvas.width;
+        const h = fieldCanvas.height;
+        const margin = 40;
+
+        const x = margin + Math.random() * (w - 2 * margin);
+        const y = margin + Math.random() * (h - 2 * margin);
+        const q = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.random() * 1.5);
+
+        charges.push({ x: Math.round(x), y: Math.round(y), q: +q.toFixed(1) });
+
+        chargesInput.value = JSON.stringify(charges, null, 2);
+        errorBox.classList.add('hidden');
+      } catch (e) {
+        showError('JSON inválido no campo de cargas. Corrija antes de adicionar.');
+      }
+    });
+
+    // ── Render ────────────────────────────────────────────────────────────────
+    renderBtn.addEventListener('click', () => {
+      try {
+        const chargesJson = chargesInput.value.trim();
+        if (!chargesJson) throw new Error('O campo de cargas está vazio.');
+
+        // Validate JSON early for a friendlier error message
+        JSON.parse(chargesJson);
+
+        const k = parseFloat(kSlider.value) * parseFloat(scaleInput.value);
+        const w = fieldCanvas.width;
+        const h = fieldCanvas.height;
+
+        const clampedArray = compute_electric_field(w, h, chargesJson, k);
+        const imageData = new ImageData(
+          new Uint8ClampedArray(clampedArray.buffer),
+          w,
+          h
+        );
+        const ctx = fieldCanvas.getContext('2d');
+        ctx.putImageData(imageData, 0, 0);
+
+        errorBox.classList.add('hidden');
+      } catch (e) {
+        showError(e?.message ?? String(e));
+      }
+    });
+  </script>
+</body>
+</html>

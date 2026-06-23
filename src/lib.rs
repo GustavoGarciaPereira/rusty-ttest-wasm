@@ -1,6 +1,8 @@
 use statrs::distribution::{ContinuousCDF, StudentsT};
 use wasm_bindgen::prelude::*;
 
+pub mod simulation;
+
 // ─── Utility functions ────────────────────────────────────────────────────────
 
 fn parse_csv(s: &str) -> Result<Vec<f64>, String> {
