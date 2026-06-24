@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Couette Visual — rusty-ttest-wasm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    body { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    .hidden { display: none !important; }
+
+    .slider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .slider-grid label { margin-bottom: 0.25rem; font-weight: 600; }
+    .slider-grid input[type="range"] { width: 100%; }
+    .slider-grid .value-display {
+      text-align: right; font-size: 0.85rem;
+      color: var(--pico-muted-color);
+    }
+
+    .controls-row {
+      display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .controls-row label { margin-bottom: 0; }
+
+    #tube-canvas {
+      display: block;
+      border-radius: var(--pico-border-radius);
+      border: 1px solid var(--pico-muted-border-color);
+      width: 100%; max-width: 700px; height: auto;
+    }
+
+    .colorbar {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-top: 0.25rem; font-size: 0.8rem;
+      color: var(--pico-muted-color);
+    }
+    .colorbar .gradient {
+      width: 200px; height: 14px; border-radius: 3px;
+      background: linear-gradient(to right, #0044cc, #00aacc, #00dd88, #ccee00, #ff4400);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p>
+      <a href="index.html">&larr; Voltar ao menu</a>
+      <button id="btn-theme-toggle" class="secondary" style="float:right; font-size:1.2rem;" title="Alternar tema claro/escuro">🌙</button>
+    </p>
+    <h1>🌊 Escoamento de Couette — Visualização Interativa</h1>
+    <p>Mapa de velocidades no canal + partículas animadas (Rust + WASM + Canvas)</p>
+  </header>
+
+  <main>
+    <article>
+      <div class="slider-grid">
+        <div>
+          <label for="U-slider">Velocidade da placa <em>U</em></label>
+          <input type="range" id="U-slider" min="0.1" max="10" step="0.1" value="2" />
+          <div class="value-display"><span id="U-value">2.0</span></div>
+        </div>
+        <div>
+          <label for="h-slider">Distância entre placas <em>h</em></label>
+          <input type="range" id="h-slider" min="0.5" max="5" step="0.1" value="2" />
+          <div class="value-display"><span id="h-value">2.0</span></div>
+        </div>
+        <div>
+          <label for="speed-slider">Velocidade animação</label>
+          <input type="range" id="speed-slider" min="0.1" max="3" step="0.1" value="0.5" />
+          <div class="value-display"><span id="speed-value">0.5</span>×</div>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button id="btn-pause">⏸ Pausar</button>
+        <small class="hint" style="margin:0;">Arraste os sliders — o mapa e as partículas atualizam automaticamente</small>
+      </div>
+
+      <canvas id="tube-canvas" width="700" height="200"></canvas>
+      <div class="colorbar">
+        <span>0</span>
+        <span class="gradient"></span>
+        <span id="vmax-label">—</span>
+      </div>
+    </article>
+
+    <div id="error-box" class="hidden">
+      <article style="border-color: var(--pico-color-red-500);">
+        <strong>Erro:</strong> <span id="error-msg"></span>
+      </article>
+    </div>
+  </main>
+
+  <script type="module">
+    import init, { velocity_analytical_couette }
+      from './pkg/rusty_ttest_wasm.js';
+
+    await init();
+
+    // ── Theme toggle ──────────────────────────────────────────────────────────
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('btn-theme-toggle');
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') html.setAttribute('data-theme', saved);
+    themeBtn.textContent = html.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+    themeBtn.addEventListener('click', () => {
+      const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      themeBtn.textContent = next === 'light' ? '☀️' : '🌙';
+    });
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const USlider     = document.getElementById('U-slider');
+    const hSlider     = document.getElementById('h-slider');
+    const speedSlider = document.getElementById('speed-slider');
+    const UValue      = document.getElementById('U-value');
+    const hValue      = document.getElementById('h-value');
+    const speedValue  = document.getElementById('speed-value');
+    const pauseBtn    = document.getElementById('btn-pause');
+    const vmaxLabel   = document.getElementById('vmax-label');
+    const canvas      = document.getElementById('tube-canvas');
+    const ctx         = canvas.getContext('2d');
+    const errorBox    = document.getElementById('error-box');
+    const errorMsg    = document.getElementById('error-msg');
+
+    // ── Parameters ────────────────────────────────────────────────────────────
+    let U          = parseFloat(USlider.value);
+    let h          = parseFloat(hSlider.value);
+    let speedScale = parseFloat(speedSlider.value);
+
+    // ── Live value displays ───────────────────────────────────────────────────
+    USlider.addEventListener('input',     () => { UValue.textContent = USlider.value; update(); });
+    hSlider.addEventListener('input',     () => { hValue.textContent = hSlider.value; update(); });
+    speedSlider.addEventListener('input', () => { speedValue.textContent = speedSlider.value; updateSpeed(); });
+
+    function updateSpeed() { speedScale = parseFloat(speedSlider.value); }
+
+    function update() {
+      U = parseFloat(USlider.value);
+      h = parseFloat(hSlider.value);
+      buildColorMap();
+    }
+
+    // ── Color map ─────────────────────────────────────────────────────────────
+    const TUBE_W = canvas.width;
+    const TUBE_H = canvas.height;
+    let colorMapImageData = null;
+
+    function velocityToColor(frac) {
+      const r = Math.floor(frac < 0.5 ? 0 : frac < 0.75 ? (frac - 0.5) * 4 * 255 : 255);
+      const g = Math.floor(frac < 0.25 ? frac * 4 * 200 + 55 : frac < 0.75 ? 255 : (1 - frac) * 4 * 255);
+      const b = Math.floor(frac < 0.25 ? 255 - frac * 4 * 200 : 0);
+      return [r, g, b];
+    }
+
+    function buildColorMap() {
+      const data = new Uint8ClampedArray(TUBE_W * TUBE_H * 4);
+      const vmax = velocity_analytical_couette(h, U, h); // u at top plate = U
+      vmaxLabel.textContent = vmax.toFixed(2);
+
+      for (let py = 0; py < TUBE_H; py++) {
+        const y = (py / (TUBE_H - 1)) * h; // physical y (0 at bottom, h at top)
+        const v = velocity_analytical_couette(y, U, h);
+        const frac = vmax > 0 ? v / vmax : 0;
+        const [cr, cg, cb] = velocityToColor(frac);
+        for (let px = 0; px < TUBE_W; px++) {
+          const base = (py * TUBE_W + px) * 4;
+          data[base] = cr; data[base + 1] = cg; data[base + 2] = cb; data[base + 3] = 255;
+        }
+      }
+
+      colorMapImageData = new ImageData(data, TUBE_W, TUBE_H);
+    }
+
+    // ── Particles ─────────────────────────────────────────────────────────────
+    const N_PARTICLES = 80;
+    let particles = [];
+
+    function resetParticles() {
+      particles = [];
+      for (let i = 0; i < N_PARTICLES; i++) {
+        const y = Math.random() * (TUBE_H - 1); // pixel y (0 = bottom)
+        const x = Math.random() * TUBE_W;
+        particles.push({ x, y });
+      }
+    }
+
+    function updateParticles(dt) {
+      for (const p of particles) {
+        const physY = (p.y / (TUBE_H - 1)) * h; // physical coordinate
+        const v = velocity_analytical_couette(physY, U, h);
+        p.x += v * dt * speedScale;
+        if (p.x > TUBE_W + 10) {
+          p.x = -10;
+          // Keep same y to maintain laminar flow visual
+        }
+      }
+    }
+
+    function drawParticles() {
+      ctx.fillStyle = '#ffffff';
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.25)';
+      for (const p of particles) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+
+    // ── Animation loop ────────────────────────────────────────────────────────
+    let running = true;
+    let lastTime = null;
+
+    function animate(timestamp) {
+      if (!running) { lastTime = null; requestAnimationFrame(animate); return; }
+
+      if (lastTime === null) lastTime = timestamp;
+      let dt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+      if (dt > 0.1) dt = 0.016;
+
+      if (colorMapImageData) ctx.putImageData(colorMapImageData, 0, 0);
+      updateParticles(dt);
+      drawParticles();
+
+      requestAnimationFrame(animate);
+    }
+
+    // ── Pause button ──────────────────────────────────────────────────────────
+    pauseBtn.addEventListener('click', () => {
+      running = !running;
+      pauseBtn.textContent = running ? '⏸ Pausar' : '▶ Retomar';
+    });
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    buildColorMap();
+    resetParticles();
+    requestAnimationFrame(animate);
+
+    // ── Error handler ─────────────────────────────────────────────────────────
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+  </script>
+</body>
+</html>

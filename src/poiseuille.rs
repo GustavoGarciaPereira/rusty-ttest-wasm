@@ -27,6 +27,8 @@ pub struct PoiseuilleParams {
 /// * `R`  – pipe radius.
 /// * `dpdx` – pressure gradient.
 /// * `mu` – dynamic viscosity.
+#[wasm_bindgen]
+#[allow(non_snake_case)]
 pub fn velocity_analytical(r: f64, R: f64, dpdx: f64, mu: f64) -> f64 {
     (dpdx / (4.0 * mu)) * (R * R - r * r)
 }

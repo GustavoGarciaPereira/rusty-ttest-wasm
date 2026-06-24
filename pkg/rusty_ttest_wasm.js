@@ -472,6 +472,27 @@ export class PoiseuilleParams {
 if (Symbol.dispose) PoiseuilleParams.prototype[Symbol.dispose] = PoiseuilleParams.prototype.free;
 
 /**
+ * JS-facing entry-point: returns both analytical and numerical Couette
+ * velocity profiles as a JSON string.
+ * @param {number} U
+ * @param {number} h
+ * @param {number} N
+ * @returns {string}
+ */
+export function compute_couette(U, h, N) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.compute_couette(U, h, N);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * JS-facing entry-point: computes the field and returns a `Uint8ClampedArray`
  * ready for direct use with a `<canvas>` via `ImageData`.
  * @param {number} width
@@ -577,6 +598,41 @@ export function paired_t_test(before, after) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return PairedResult.__wrap(ret[0]);
+}
+
+/**
+ * Exact velocity at radial position `r` for a Poiseuille flow:
+ *
+ * ```text
+ * u(r) = dpdx / (4 μ) · (R² − r²)
+ * ```
+ *
+ * * `r`  – radial coordinate (0 ≤ r ≤ R).
+ * * `R`  – pipe radius.
+ * * `dpdx` – pressure gradient.
+ * * `mu` – dynamic viscosity.
+ * @param {number} r
+ * @param {number} R
+ * @param {number} dpdx
+ * @param {number} mu
+ * @returns {number}
+ */
+export function velocity_analytical(r, R, dpdx, mu) {
+    const ret = wasm.velocity_analytical(r, R, dpdx, mu);
+    return ret;
+}
+
+/**
+ * Exact Couette flow velocity: linear profile between stationary (y=0) and
+ * moving (y=h) plates.
+ * @param {number} y
+ * @param {number} U
+ * @param {number} h
+ * @returns {number}
+ */
+export function velocity_analytical_couette(y, U, h) {
+    const ret = wasm.velocity_analytical_couette(y, U, h);
+    return ret;
 }
 
 function __wbg_get_imports() {

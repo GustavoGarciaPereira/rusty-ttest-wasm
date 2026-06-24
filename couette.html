@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Couette — rusty-ttest-wasm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    body { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    .hidden { display: none !important; }
+
+    .slider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .slider-grid label { margin-bottom: 0.25rem; font-weight: 600; }
+    .slider-grid input[type="range"] { width: 100%; }
+    .slider-grid .value-display {
+      text-align: right; font-size: 0.85rem;
+      color: var(--pico-muted-color);
+    }
+
+    #plot-canvas {
+      display: block;
+      margin-top: 1rem;
+      border-radius: var(--pico-border-radius);
+      border: 1px solid var(--pico-muted-border-color);
+      width: 100%; max-width: 700px; height: auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p>
+      <a href="index.html">&larr; Voltar ao menu</a>
+      <button id="btn-theme-toggle" class="secondary" style="float:right; font-size:1.2rem;" title="Alternar tema claro/escuro">🌙</button>
+    </p>
+    <h1>🌊 Escoamento de Couette — Perfil de Velocidade</h1>
+    <p>Escoamento entre placas paralelas — solução analítica vs numérica (diferenças finitas + TDMA)</p>
+  </header>
+
+  <main>
+    <article>
+      <div class="slider-grid">
+        <div>
+          <label for="U-slider">Velocidade da placa <em>U</em></label>
+          <input type="range" id="U-slider" min="0.1" max="10" step="0.1" value="2" />
+          <div class="value-display"><span id="U-value">2.0</span></div>
+        </div>
+        <div>
+          <label for="h-slider">Distância entre placas <em>h</em></label>
+          <input type="range" id="h-slider" min="0.5" max="5" step="0.1" value="2" />
+          <div class="value-display"><span id="h-value">2.0</span></div>
+        </div>
+        <div>
+          <label for="N-slider">Pontos <em>N</em></label>
+          <input type="range" id="N-slider" min="5" max="100" step="1" value="20" />
+          <div class="value-display"><span id="N-value">20</span></div>
+        </div>
+      </div>
+
+      <button id="btn-calculate">Calcular Perfil</button>
+
+      <canvas id="plot-canvas" width="700" height="450"></canvas>
+    </article>
+
+    <div id="error-box" class="hidden">
+      <article style="border-color: var(--pico-color-red-500);">
+        <strong>Erro:</strong> <span id="error-msg"></span>
+      </article>
+    </div>
+  </main>
+
+  <script type="module">
+    import init, { compute_couette }
+      from './pkg/rusty_ttest_wasm.js';
+
+    await init();
+
+    // ── Theme toggle ──────────────────────────────────────────────────────────
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('btn-theme-toggle');
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') html.setAttribute('data-theme', saved);
+    themeBtn.textContent = html.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+    themeBtn.addEventListener('click', () => {
+      const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      themeBtn.textContent = next === 'light' ? '☀️' : '🌙';
+      if (lastData) drawPlot();
+    });
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const USlider  = document.getElementById('U-slider');
+    const hSlider  = document.getElementById('h-slider');
+    const NSlider  = document.getElementById('N-slider');
+    const UValue   = document.getElementById('U-value');
+    const hValue   = document.getElementById('h-value');
+    const NValue   = document.getElementById('N-value');
+    const calcBtn  = document.getElementById('btn-calculate');
+    const canvas   = document.getElementById('plot-canvas');
+    const ctx      = canvas.getContext('2d');
+    const errorBox = document.getElementById('error-box');
+    const errorMsg = document.getElementById('error-msg');
+
+    // ── Live value displays ───────────────────────────────────────────────────
+    USlider.addEventListener('input', () => { UValue.textContent = USlider.value; updatePlot(); });
+    hSlider.addEventListener('input', () => { hValue.textContent = hSlider.value; updatePlot(); });
+    NSlider.addEventListener('input', () => { NValue.textContent = NSlider.value; updatePlot(); });
+
+    // ── Error helper ──────────────────────────────────────────────────────────
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+
+    // ── Plotting ──────────────────────────────────────────────────────────────
+    let lastData = null;
+
+    function drawPlot() {
+      if (!lastData) return;
+      const w = canvas.width;
+      const h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      const isDark = html.getAttribute('data-theme') !== 'light';
+      const bgColor   = isDark ? '#11191f' : '#ffffff';
+      const gridColor = isDark ? '#2a3540' : '#d0d0d0';
+      const axisColor = isDark ? '#bbc6d3' : '#333333';
+      const textColor = isDark ? '#bbc6d3' : '#333333';
+
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, w, h);
+
+      const { y_analytical, u_analytical, y_numerical, u_numerical } = lastData;
+
+      const yMax = y_analytical[y_analytical.length - 1];
+      const uMax = u_analytical[u_analytical.length - 1]; // velocity at top plate
+
+      const margin = { top: 40, right: 30, bottom: 50, left: 60 };
+      const pw = w - margin.left - margin.right;
+      const ph = h - margin.top - margin.bottom;
+
+      function toX(y) { return margin.left + (y / yMax) * pw; }
+      function toY(u) { return margin.top + ph - (u / uMax) * ph; }
+
+      // Grid
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth = 1;
+      const nGrid = 5;
+      for (let i = 0; i <= nGrid; i++) {
+        const gx = margin.left + (i / nGrid) * pw;
+        ctx.beginPath(); ctx.moveTo(gx, margin.top); ctx.lineTo(gx, margin.top + ph); ctx.stroke();
+        const gy = margin.top + ph - (i / nGrid) * ph;
+        ctx.beginPath(); ctx.moveTo(margin.left, gy); ctx.lineTo(margin.left + pw, gy); ctx.stroke();
+      }
+
+      // Axes
+      ctx.strokeStyle = axisColor;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(margin.left, margin.top); ctx.lineTo(margin.left, margin.top + ph); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(margin.left, margin.top + ph); ctx.lineTo(margin.left + pw, margin.top + ph); ctx.stroke();
+
+      // X-axis labels
+      ctx.fillStyle = textColor;
+      ctx.font = '13px sans-serif';
+      ctx.textAlign = 'center';
+      for (let i = 0; i <= nGrid; i++) {
+        const val = (i / nGrid) * yMax;
+        ctx.fillText(val.toFixed(2), margin.left + (i / nGrid) * pw, margin.top + ph + 18);
+      }
+      ctx.fillText('Posição y', margin.left + pw / 2, margin.top + ph + 38);
+
+      // Y-axis labels
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= nGrid; i++) {
+        const val = (i / nGrid) * uMax;
+        ctx.fillText(val.toFixed(2), margin.left - 8, margin.top + ph - (i / nGrid) * ph + 4);
+      }
+      ctx.save();
+      ctx.translate(14, margin.top + ph / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.fillText('Velocidade u(y)', 0, 0);
+      ctx.restore();
+
+      // Analytical curve (green)
+      ctx.strokeStyle = '#2ecc40';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i < y_analytical.length; i++) {
+        const x = toX(y_analytical[i]);
+        const y = toY(u_analytical[i]);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Numerical points (red)
+      ctx.fillStyle = '#ff4136';
+      const r = Math.max(2.5, Math.min(4, pw / y_numerical.length * 0.6));
+      for (let i = 0; i < y_numerical.length; i++) {
+        const x = toX(y_numerical[i]);
+        const y = toY(u_numerical[i]);
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+
+      // Legend
+      const lx = margin.left + 12;
+      const ly = margin.top + 12;
+      ctx.font = '13px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#2ecc40';
+      ctx.fillRect(lx, ly, 18, 3);
+      ctx.fillStyle = textColor;
+      ctx.fillText('Analítica', lx + 24, ly + 5);
+      ctx.fillStyle = '#ff4136';
+      ctx.beginPath();
+      ctx.arc(lx + 9, ly + 18, 4, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.fillStyle = textColor;
+      ctx.fillText('Numérica', lx + 24, ly + 22);
+    }
+
+    function updatePlot() {
+      try {
+        const U = parseFloat(USlider.value);
+        const h = parseFloat(hSlider.value);
+        const N = parseInt(NSlider.value, 10);
+
+        const json = compute_couette(U, h, N);
+        lastData = JSON.parse(json);
+        drawPlot();
+        errorBox.classList.add('hidden');
+      } catch (e) {
+        showError(e?.message ?? String(e));
+      }
+    }
+
+    // ── Initial render ────────────────────────────────────────────────────────
+    updatePlot();
+  </script>
+</body>
+</html>

@@ -81,6 +81,12 @@ export class PoiseuilleParams {
 }
 
 /**
+ * JS-facing entry-point: returns both analytical and numerical Couette
+ * velocity profiles as a JSON string.
+ */
+export function compute_couette(U: number, h: number, N: number): string;
+
+/**
  * JS-facing entry-point: computes the field and returns a `Uint8ClampedArray`
  * ready for direct use with a `<canvas>` via `ImageData`.
  */
@@ -106,6 +112,26 @@ export function independent_t_test(group_a: string, group_b: string): Independen
 export function one_sample_t_test(data: string, mu: number): OneSampleResult;
 
 export function paired_t_test(before: string, after: string): PairedResult;
+
+/**
+ * Exact velocity at radial position `r` for a Poiseuille flow:
+ *
+ * ```text
+ * u(r) = dpdx / (4 μ) · (R² − r²)
+ * ```
+ *
+ * * `r`  – radial coordinate (0 ≤ r ≤ R).
+ * * `R`  – pipe radius.
+ * * `dpdx` – pressure gradient.
+ * * `mu` – dynamic viscosity.
+ */
+export function velocity_analytical(r: number, R: number, dpdx: number, mu: number): number;
+
+/**
+ * Exact Couette flow velocity: linear profile between stationary (y=0) and
+ * moving (y=h) plates.
+ */
+export function velocity_analytical_couette(y: number, U: number, h: number): number;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
@@ -168,6 +194,8 @@ export interface InitOutput {
     readonly __wbg_set_charge_y: (a: number, b: number) => void;
     readonly compute_electric_field: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly generate_field_image: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly compute_couette: (a: number, b: number, c: number) => [number, number];
+    readonly velocity_analytical_couette: (a: number, b: number, c: number) => number;
     readonly __wbg_get_poiseuilleparams_N: (a: number) => number;
     readonly __wbg_get_poiseuilleparams_R: (a: number) => number;
     readonly __wbg_get_poiseuilleparams_dpdx: (a: number) => number;
@@ -178,10 +206,11 @@ export interface InitOutput {
     readonly __wbg_set_poiseuilleparams_dpdx: (a: number, b: number) => void;
     readonly __wbg_set_poiseuilleparams_mu: (a: number, b: number) => void;
     readonly compute_poiseuille: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly velocity_analytical: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __externref_table_dealloc: (a: number) => void;
     readonly __wbindgen_start: () => void;
 }
