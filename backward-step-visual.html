@@ -188,6 +188,7 @@
 
     // ── Bilinear interpolation (JS, faster than WASM per-particle) ────────────
     function interp(x, y) {
+      if (!gridData) return { u: 0, v: 0 };
       const g = gridData;
       const dx = g.x[1] - g.x[0];
       const dy = g.y[1] - g.y[0];
@@ -304,6 +305,7 @@
     }
 
     function updateParticles(dt) {
+      if (!gridData) return;
       const g = gridData;
       const xMin = g.x[0], xMax = g.x[g.x.length - 1];
       const yMin = g.y[0], yMax = g.y[g.y.length - 1];
@@ -328,19 +330,9 @@
       }
     }
 
-    function drawParticles() {
-      ctx.fillStyle = '#ffffff';
-      for (const p of particles) {
-        ctx.beginPath();
-        ctx.arc(p.x / (gridData.x[gridData.x.length-1]) * CANVAS_W,
-                CANVAS_H - (p.y / gridData.y[gridData.y.length-1]) * CANVAS_H,
-                2.5, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-    }
-
     // Transform particle physical coords → canvas coords for drawing
     function drawParticlesTransformed() {
+      if (!gridData) return;
       const g = gridData;
       const xScale = CANVAS_W / g.x[g.x.length - 1];
       const yScale = CANVAS_H / g.y[g.y.length - 1];
