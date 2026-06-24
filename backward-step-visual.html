@@ -8,46 +8,16 @@
   <style>
     body { max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
     .hidden { display: none !important; }
-
-    .slider-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 1rem;
-      margin-bottom: 1rem;
-    }
+    .slider-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
     .slider-grid label { margin-bottom: 0.25rem; font-weight: 600; }
     .slider-grid input[type="range"] { width: 100%; }
-    .slider-grid .value-display {
-      text-align: right; font-size: 0.85rem;
-      color: var(--pico-muted-color);
-    }
-
-    .controls-row {
-      display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
-      margin-bottom: 0.75rem;
-    }
+    .slider-grid .value-display { text-align: right; font-size: 0.85rem; color: var(--pico-muted-color); }
+    .controls-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 0.75rem; }
     .controls-row label { margin-bottom: 0; }
-
-    #loading-indicator {
-      text-align: center; padding: 2rem;
-      font-size: 1.1rem; color: var(--pico-primary);
-    }
-
-    #vis-canvas {
-      display: block;
-      border-radius: var(--pico-border-radius);
-      border: 1px solid var(--pico-muted-border-color);
-      width: 100%; max-width: 700px; height: auto;
-    }
-    .colorbar {
-      display: flex; align-items: center; gap: 0.5rem;
-      margin-top: 0.25rem; font-size: 0.8rem;
-      color: var(--pico-muted-color);
-    }
-    .colorbar .gradient {
-      width: 200px; height: 14px; border-radius: 3px;
-      background: linear-gradient(to right, #000022, #0044cc, #00aacc, #00dd88, #ccee00, #ff4400, #ffcccc);
-    }
+    #loading-indicator { text-align: center; padding: 2rem; font-size: 1.1rem; color: var(--pico-primary); }
+    #vis-canvas { display: block; border-radius: var(--pico-border-radius); border: 1px solid var(--pico-muted-border-color); width: 100%; max-width: 700px; height: auto; }
+    .colorbar { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.25rem; font-size: 0.8rem; color: var(--pico-muted-color); }
+    .colorbar .gradient { width: 200px; height: 14px; border-radius: 3px; background: linear-gradient(to right, #000022, #0044cc, #00aacc, #00dd88, #ccee00, #ff4400, #ffcccc); }
   </style>
 </head>
 <body>
@@ -59,72 +29,32 @@
     <h1>🌊 Escoamento com Degrau Retangular</h1>
     <p>Backward-Facing Step — solver SIMPLE 2D + partículas traçadoras (Rust + WASM + Canvas)</p>
   </header>
-
   <main>
     <article>
       <div class="slider-grid">
-        <div>
-          <label for="U-slider"><em>U<sub>in</sub></em> (velocidade entrada)</label>
-          <input type="range" id="U-slider" min="0.5" max="5" step="0.1" value="1" />
-          <div class="value-display"><span id="U-value">1.0</span></div>
-        </div>
-        <div>
-          <label for="h-slider"><em>h<sub>in</sub></em> (altura montante)</label>
-          <input type="range" id="h-slider" min="0.5" max="2" step="0.1" value="1" />
-          <div class="value-display"><span id="h-value">1.0</span></div>
-        </div>
-        <div>
-          <label for="nx-slider"><em>nx</em> (células x)</label>
-          <input type="range" id="nx-slider" min="40" max="100" step="5" value="60" />
-          <div class="value-display"><span id="nx-value">60</span></div>
-        </div>
-        <div>
-          <label for="ny-slider"><em>ny</em> (células y)</label>
-          <input type="range" id="ny-slider" min="20" max="50" step="5" value="30" />
-          <div class="value-display"><span id="ny-value">30</span></div>
-        </div>
-        <div>
-          <label for="iter-slider"><em>max_iter</em> (iterações)</label>
-          <input type="range" id="iter-slider" min="500" max="5000" step="100" value="1500" />
-          <div class="value-display"><span id="iter-value">1500</span></div>
-        </div>
+        <div><label for="U-slider"><em>U<sub>in</sub></em> (velocidade entrada)</label><input type="range" id="U-slider" min="0.5" max="5" step="0.1" value="1"><div class="value-display"><span id="U-value">1.0</span></div></div>
+        <div><label for="h-slider"><em>h<sub>in</sub></em> (altura montante)</label><input type="range" id="h-slider" min="0.5" max="2" step="0.1" value="1"><div class="value-display"><span id="h-value">1.0</span></div></div>
+        <div><label for="nx-slider"><em>nx</em> (células x)</label><input type="range" id="nx-slider" min="40" max="100" step="5" value="60"><div class="value-display"><span id="nx-value">60</span></div></div>
+        <div><label for="ny-slider"><em>ny</em> (células y)</label><input type="range" id="ny-slider" min="20" max="50" step="5" value="30"><div class="value-display"><span id="ny-value">30</span></div></div>
+        <div><label for="iter-slider"><em>max_iter</em> (iterações)</label><input type="range" id="iter-slider" min="500" max="5000" step="100" value="1500"><div class="value-display"><span id="iter-value">1500</span></div></div>
       </div>
-
       <div class="controls-row">
         <button id="btn-simulate">🚀 Simular</button>
         <button id="btn-pause" class="secondary">⏸ Pausar partículas</button>
         <label for="speed-slider">Velocidade animação</label>
-        <input type="range" id="speed-slider" min="0.1" max="3" step="0.1" value="0.5" style="width:8rem;" />
+        <input type="range" id="speed-slider" min="0.1" max="3" step="0.1" value="0.5" style="width:8rem;">
         <span id="speed-value">0.5</span>×
       </div>
-
-      <div id="loading-indicator" class="hidden">
-        <p>🔄 Resolvendo escoamento... Aguarde alguns segundos.</p>
-        <progress></progress>
-      </div>
-
+      <div id="loading-indicator" class="hidden"><p>🔄 Resolvendo escoamento... Aguarde alguns segundos.</p><progress></progress></div>
       <canvas id="vis-canvas" width="700" height="400"></canvas>
-      <div class="colorbar">
-        <span>0</span>
-        <span class="gradient"></span>
-        <span id="vmax-label">—</span>
-      </div>
+      <div class="colorbar"><span>0</span><span class="gradient"></span><span id="vmax-label">—</span></div>
     </article>
-
-    <div id="error-box" class="hidden">
-      <article style="border-color: var(--pico-color-red-500);">
-        <strong>Erro:</strong> <span id="error-msg"></span>
-      </article>
-    </div>
+    <div id="error-box" class="hidden"><article style="border-color: var(--pico-color-red-500);"><strong>Erro:</strong> <span id="error-msg"></span></article></div>
   </main>
-
   <script type="module">
-    import init, { compute_backward_step }
-      from './pkg/rusty_ttest_wasm.js';
-
+    import init, { compute_backward_step } from './pkg/rusty_ttest_wasm.js';
     await init();
 
-    // ── Theme toggle ──────────────────────────────────────────────────────────
     const html = document.documentElement;
     const themeBtn = document.getElementById('btn-theme-toggle');
     const saved = localStorage.getItem('theme');
@@ -135,287 +65,113 @@
       html.setAttribute('data-theme', next);
       localStorage.setItem('theme', next);
       themeBtn.textContent = next === 'light' ? '☀️' : '🌙';
-      if (gridData) drawColorMap();
+      if (simData) drawColorMap();
     });
 
-    // ── DOM refs ──────────────────────────────────────────────────────────────
-    const USlider     = document.getElementById('U-slider');
-    const hSlider     = document.getElementById('h-slider');
-    const nxSlider    = document.getElementById('nx-slider');
-    const nySlider    = document.getElementById('ny-slider');
-    const iterSlider  = document.getElementById('iter-slider');
-    const speedSlider = document.getElementById('speed-slider');
-    const UValue      = document.getElementById('U-value');
-    const hValue      = document.getElementById('h-value');
-    const nxValue     = document.getElementById('nx-value');
-    const nyValue     = document.getElementById('ny-value');
-    const iterValue   = document.getElementById('iter-value');
-    const speedValue  = document.getElementById('speed-value');
-    const simBtn      = document.getElementById('btn-simulate');
-    const pauseBtn    = document.getElementById('btn-pause');
-    const vmaxLabel   = document.getElementById('vmax-label');
-    const loadingEl   = document.getElementById('loading-indicator');
-    const canvas      = document.getElementById('vis-canvas');
-    const ctx         = canvas.getContext('2d');
-    const errorBox    = document.getElementById('error-box');
-    const errorMsg    = document.getElementById('error-msg');
+    const USlider=document.getElementById('U-slider'),hSlider=document.getElementById('h-slider'),nxSlider=document.getElementById('nx-slider'),nySlider=document.getElementById('ny-slider'),iterSlider=document.getElementById('iter-slider'),speedSlider=document.getElementById('speed-slider');
+    const UValue=document.getElementById('U-value'),hValue=document.getElementById('h-value'),nxValue=document.getElementById('nx-value'),nyValue=document.getElementById('ny-value'),iterValue=document.getElementById('iter-value'),speedValue=document.getElementById('speed-value');
+    const simBtn=document.getElementById('btn-simulate'),pauseBtn=document.getElementById('btn-pause'),vmaxLabel=document.getElementById('vmax-label'),loadingEl=document.getElementById('loading-indicator');
+    const canvas=document.getElementById('vis-canvas'),ctx=canvas.getContext('2d'),errorBox=document.getElementById('error-box'),errorMsg=document.getElementById('error-msg');
+    const CW=canvas.width,CH=canvas.height;
+    let speedScale=0.5,animRunning=true,simData=null,colorImage=null,particles=[];
+    const N_PARTICLES=200;
 
-    const CANVAS_W = canvas.width;
-    const CANVAS_H = canvas.height;
-    let speedScale = 0.5;
-    let running = true;
-    let gridData = null;   // { x, y, u, v, mag, p }
-    let colorImage = null; // ImageData for background
-    let particles = [];
-    const N_PARTICLES = 200;
+    USlider.addEventListener('input',()=>UValue.textContent=USlider.value);
+    hSlider.addEventListener('input',()=>hValue.textContent=hSlider.value);
+    nxSlider.addEventListener('input',()=>nxValue.textContent=nxSlider.value);
+    nySlider.addEventListener('input',()=>nyValue.textContent=nySlider.value);
+    iterSlider.addEventListener('input',()=>iterValue.textContent=iterSlider.value);
+    speedSlider.addEventListener('input',()=>{speedValue.textContent=speedSlider.value;speedScale=parseFloat(speedSlider.value);});
 
-    // ── Live value displays ───────────────────────────────────────────────────
-    USlider.addEventListener('input',    () => UValue.textContent    = USlider.value);
-    hSlider.addEventListener('input',    () => hValue.textContent    = hSlider.value);
-    nxSlider.addEventListener('input',   () => nxValue.textContent   = nxSlider.value);
-    nySlider.addEventListener('input',   () => nyValue.textContent   = nySlider.value);
-    iterSlider.addEventListener('input', () => iterValue.textContent = iterSlider.value);
-    speedSlider.addEventListener('input', () => {
-      speedValue.textContent = speedSlider.value;
-      speedScale = parseFloat(speedSlider.value);
+    function showError(m){errorMsg.textContent=m;errorBox.classList.remove('hidden');}
+
+    function interp(x,y){
+      if(!simData)return{u:0,v:0};
+      const D=simData,dx=D.x[1]-D.x[0],dy=D.y[1]-D.y[0],x0=D.x[0],y0=D.y[0],nx=D.x.length,ny=D.y.length;
+      let if_=(x-x0)/dx,jf=(y-y0)/dy;
+      if_=Math.max(0,Math.min(nx-1.0001,if_));jf=Math.max(0,Math.min(ny-1.0001,jf));
+      const i=Math.floor(if_),j=Math.floor(jf),fx=if_-i,fy=jf-j;
+      const u00=D.u[i][j],u10=D.u[i+1]?.[j]??u00,u01=D.u[i]?.[j+1]??u00,u11=D.u[i+1]?.[j+1]??u00;
+      const u=(1-fx)*(1-fy)*u00+fx*(1-fy)*u10+(1-fx)*fy*u01+fx*fy*u11;
+      const v00=D.v[i][j],v10=D.v[i+1]?.[j]??v00,v01=D.v[i]?.[j+1]??v00,v11=D.v[i+1]?.[j+1]??v00;
+      const v=(1-fx)*(1-fy)*v00+fx*(1-fy)*v10+(1-fx)*fy*v01+fx*fy*v11;
+      return{u,v};
+    }
+
+    function velToColor(frac){
+      const stops=[{t:0,r:0,gr:0,b:34},{t:0.15,r:0,gr:68,b:204},{t:0.30,r:0,gr:170,b:204},{t:0.50,r:0,gr:221,b:136},{t:0.70,r:204,gr:238,b:0},{t:0.85,r:255,gr:68,b:0},{t:1,r:255,gr:204,b:204}];
+      for(let i=1;i<stops.length;i++){if(frac<=stops[i].t){const s0=stops[i-1],s1=stops[i],f=(frac-s0.t)/(s1.t-s0.t);return[Math.round(s0.r+f*(s1.r-s0.r)),Math.round(s0.gr+f*(s1.gr-s0.gr)),Math.round(s0.b+f*(s1.b-s0.b))];}}
+      return[255,204,204];
+    }
+
+    function drawColorMap(){
+      if(!simData)return;
+      const D=simData,w=CW,h=CH,data=new Uint8ClampedArray(w*h*4),nx=D.x.length,ny=D.y.length,xMin=D.x[0],xMax=D.x[nx-1],yMin=D.y[0],yMax=D.y[ny-1];
+      let vmax=0;
+      for(let j=0;j<ny;j++)for(let i=0;i<nx;i++)vmax=Math.max(vmax,D.mag[i][j]);
+      vmaxLabel.textContent=vmax.toFixed(3);
+      for(let py=0;py<h;py++){
+        const yPhys=yMin+(py/(h-1))*(yMax-yMin),jf=((yPhys-yMin)/(yMax-yMin))*(ny-1),j0=Math.floor(jf),j1=Math.min(j0+1,ny-1),fy=jf-j0;
+        for(let px=0;px<w;px++){
+          const xPhys=xMin+(px/(w-1))*(xMax-xMin),i_f=((xPhys-xMin)/(xMax-xMin))*(nx-1),i0=Math.floor(i_f),i1=Math.min(i0+1,nx-1),fx=i_f-i0;
+          const m00=D.mag[i0][j0],m10=D.mag[i1][j0],m01=D.mag[i0][j1],m11=D.mag[i1][j1];
+          const mag=(1-fx)*(1-fy)*m00+fx*(1-fy)*m10+(1-fx)*fy*m01+fx*fy*m11,frac=vmax>0?mag/vmax:0;
+          const[r,gr,b]=velToColor(frac),base=(py*w+px)*4;
+          data[base]=r;data[base+1]=gr;data[base+2]=b;data[base+3]=255;
+        }
+      }
+      colorImage=new ImageData(data,w,h);
+      ctx.putImageData(colorImage,0,0);
+    }
+
+    function initParticles(){
+      particles=[];
+      if(!simData)return;
+      const D=simData,hIn=parseFloat(hSlider.value),inletY0=hIn,inletY1=2*hIn;
+      for(let i=0;i<N_PARTICLES;i++){const y=inletY0+Math.random()*(inletY1-inletY0),x=D.x[0]+Math.random()*(D.x[1]-D.x[0]);particles.push({x,y});}
+    }
+
+    function updateParticles(dt){
+      if(!simData)return;
+      const D=simData,xMin=D.x[0],xMax=D.x[D.x.length-1],yMin=D.y[0],yMax=D.y[D.y.length-1],hIn=parseFloat(hSlider.value),inletY0=hIn,inletY1=2*hIn;
+      for(const p of particles){
+        const{u,v}=interp(p.x,p.y);p.x+=u*dt*speedScale;p.y+=v*dt*speedScale;
+        if(p.x>xMax+5||p.x<xMin-5||p.y>yMax+5||p.y<yMin-5){p.x=xMin+Math.random()*(D.x[1]-D.x[0]);p.y=inletY0+Math.random()*(inletY1-inletY0);}
+        if(p.x<D.x[0]+2&&p.y<hIn){p.x=xMin+Math.random()*(D.x[1]-D.x[0]);p.y=inletY0+Math.random()*(inletY1-inletY0);}
+      }
+    }
+
+    function drawParticles(){
+      if(!simData)return;
+      const D=simData,xScale=CW/D.x[D.x.length-1],yScale=CH/D.y[D.y.length-1];
+      ctx.fillStyle='#ffffff';
+      for(const p of particles){const cx=p.x*xScale,cy=CH-p.y*yScale;ctx.beginPath();ctx.arc(cx,cy,2.5,0,2*Math.PI);ctx.fill();}
+      ctx.fillStyle='rgba(255,255,255,0.2)';
+      for(const p of particles){const cx=p.x*xScale,cy=CH-p.y*yScale;ctx.beginPath();ctx.arc(cx,cy,5.5,0,2*Math.PI);ctx.fill();}
+    }
+
+    let lastTime=null;
+    function animate(ts){
+      if(!animRunning){lastTime=null;requestAnimationFrame(animate);return;}
+      if(!simData){requestAnimationFrame(animate);return;}
+      if(lastTime===null)lastTime=ts;
+      let dt=(ts-lastTime)/1000;lastTime=ts;if(dt>0.1)dt=0.016;
+      if(colorImage)ctx.putImageData(colorImage,0,0);
+      updateParticles(dt);drawParticles();requestAnimationFrame(animate);
+    }
+
+    simBtn.addEventListener('click',async()=>{
+      try{
+        loadingEl.classList.remove('hidden');errorBox.classList.add('hidden');animRunning=false;
+        const Ui=parseFloat(USlider.value),hi=parseFloat(hSlider.value),nxi=parseInt(nxSlider.value,10),nyi=parseInt(nySlider.value,10),iteri=parseInt(iterSlider.value,10);
+        await new Promise(r=>setTimeout(r,50));
+        const json=compute_backward_step(Ui,hi,nxi,nyi,iteri);simData=JSON.parse(json);
+        if(!simData.x.length)throw new Error('Malha muito grande (máx 120×60). Reduza nx ou ny.');
+        loadingEl.classList.add('hidden');drawColorMap();initParticles();animRunning=true;lastTime=null;requestAnimationFrame(animate);
+      }catch(e){loadingEl.classList.add('hidden');showError(e?.message??String(e));}
     });
 
-    // ── Error helper ──────────────────────────────────────────────────────────
-    function showError(msg) {
-      errorMsg.textContent = msg;
-      errorBox.classList.remove('hidden');
-    }
-
-    // ── Bilinear interpolation (JS, faster than WASM per-particle) ────────────
-    function interp(x, y) {
-      if (!gridData) return { u: 0, v: 0 };
-      const g = gridData;
-      const dx = g.x[1] - g.x[0];
-      const dy = g.y[1] - g.y[0];
-      const x0 = g.x[0];
-      const y0 = g.y[0];
-      const nx = g.x.length;
-      const ny = g.y.length;
-
-      let i_f = (x - x0) / dx;
-      let j_f = (y - y0) / dy;
-      i_f = Math.max(0, Math.min(nx - 1.0001, i_f));
-      j_f = Math.max(0, Math.min(ny - 1.0001, j_f));
-
-      const i = Math.floor(i_f);
-      const j = Math.floor(j_f);
-      const fx = i_f - i;
-      const fy = j_f - j;
-
-      const idx = (i, j) => i + j * nx;
-      const u00 = g.u[i][j]; const u10 = g.u[i + 1]?.[j] ?? u00;
-      const u01 = g.u[i]?.[j + 1] ?? u00; const u11 = g.u[i + 1]?.[j + 1] ?? u00;
-      const u = (1-fx)*(1-fy)*u00 + fx*(1-fy)*u10 + (1-fx)*fy*u01 + fx*fy*u11;
-
-      const v00 = g.v[i][j]; const v10 = g.v[i + 1]?.[j] ?? v00;
-      const v01 = g.v[i]?.[j + 1] ?? v00; const v11 = g.v[i + 1]?.[j + 1] ?? v00;
-      const v = (1-fx)*(1-fy)*v00 + fx*(1-fy)*v10 + (1-fx)*fy*v01 + fx*fy*v11;
-
-      return { u, v };
-    }
-
-    // ── Color map ─────────────────────────────────────────────────────────────
-    function velToColor(frac) {
-      // Custom: dark blue → blue → cyan → green → yellow → red → pink
-      const stops = [
-        { t: 0.00, r: 0,   g: 0,   b: 34  },
-        { t: 0.15, r: 0,   g: 68,  b: 204 },
-        { t: 0.30, r: 0,   g: 170, b: 204 },
-        { t: 0.50, r: 0,   g: 221, b: 136 },
-        { t: 0.70, r: 204, g: 238, b: 0   },
-        { t: 0.85, r: 255, g: 68,  b: 0   },
-        { t: 1.00, r: 255, g: 204, b: 204 },
-      ];
-      for (let i = 1; i < stops.length; i++) {
-        if (frac <= stops[i].t) {
-          const s0 = stops[i-1]; const s1 = stops[i];
-          const f = (frac - s0.t) / (s1.t - s0.t);
-          return [
-            Math.round(s0.r + f * (s1.r - s0.r)),
-            Math.round(s0.g + f * (s1.g - s0.g)),
-            Math.round(s0.b + f * (s1.b - s0.b)),
-          ];
-        }
-      }
-      return [255, 204, 204];
-    }
-
-    function drawColorMap() {
-      const g = gridData;
-      const w = CANVAS_W, h = CANVAS_H;
-      const data = new Uint8ClampedArray(w * h * 4);
-      const nx = g.x.length, ny = g.y.length;
-      const xMin = g.x[0], xMax = g.x[nx-1];
-      const yMin = g.y[0], yMax = g.y[ny-1];
-
-      // Find max magnitude for scaling
-      let vmax = 0;
-      for (let j = 0; j < ny; j++)
-        for (let i = 0; i < nx; i++)
-          vmax = Math.max(vmax, g.mag[i][j]);
-      vmaxLabel.textContent = vmax.toFixed(3);
-
-      for (let py = 0; py < h; py++) {
-        const yPhys = yMin + (py / (h - 1)) * (yMax - yMin);
-        const jf = ((yPhys - yMin) / (yMax - yMin)) * (ny - 1);
-        const j0 = Math.floor(jf);
-        const j1 = Math.min(j0 + 1, ny - 1);
-        const fy = jf - j0;
-
-        for (let px = 0; px < w; px++) {
-          const xPhys = xMin + (px / (w - 1)) * (xMax - xMin);
-          const i_f = ((xPhys - xMin) / (xMax - xMin)) * (nx - 1);
-          const i0 = Math.floor(i_f);
-          const i1 = Math.min(i0 + 1, nx - 1);
-          const fx = i_f - i0;
-
-          const m00 = g.mag[i0][j0]; const m10 = g.mag[i1][j0];
-          const m01 = g.mag[i0][j1]; const m11 = g.mag[i1][j1];
-          const mag = (1-fx)*(1-fy)*m00 + fx*(1-fy)*m10 + (1-fx)*fy*m01 + fx*fy*m11;
-          const frac = vmax > 0 ? mag / vmax : 0;
-          const [r, g, b] = velToColor(frac);
-
-          const base = (py * w + px) * 4;
-          data[base] = r; data[base+1] = g; data[base+2] = b; data[base+3] = 255;
-        }
-      }
-      colorImage = new ImageData(data, w, h);
-      ctx.putImageData(colorImage, 0, 0);
-    }
-
-    // ── Particles ─────────────────────────────────────────────────────────────
-    function initParticles() {
-      particles = [];
-      const g = gridData;
-      const yMin = g.y[0], yMax = g.y[g.y.length - 1];
-      const hIn = parseFloat(hSlider.value);
-      // Release particles in the inlet (top part of left boundary)
-      const inletY0 = hIn;           // bottom of inlet
-      const inletY1 = 2 * hIn;       // top of inlet = h_out
-      for (let i = 0; i < N_PARTICLES; i++) {
-        const y = inletY0 + Math.random() * (inletY1 - inletY0);
-        const x = g.x[0] + Math.random() * (g.x[1] - g.x[0]); // slightly inside
-        particles.push({ x, y });
-      }
-    }
-
-    function updateParticles(dt) {
-      if (!gridData) return;
-      const g = gridData;
-      const xMin = g.x[0], xMax = g.x[g.x.length - 1];
-      const yMin = g.y[0], yMax = g.y[g.y.length - 1];
-      const hIn = parseFloat(hSlider.value);
-      const inletY0 = hIn, inletY1 = 2 * hIn;
-
-      for (const p of particles) {
-        const { u, v } = interp(p.x, p.y);
-        p.x += u * dt * speedScale;
-        p.y += v * dt * speedScale;
-
-        // Reset if out of bounds
-        if (p.x > xMax + 5 || p.x < xMin - 5 || p.y > yMax + 5 || p.y < yMin - 5) {
-          p.x = xMin + Math.random() * (g.x[1] - g.x[0]);
-          p.y = inletY0 + Math.random() * (inletY1 - inletY0);
-        }
-        // Also reset if stuck in step region (y < h_in at x ≈ 0)
-        if (p.x < g.x[0] + 2 && p.y < hIn) {
-          p.x = xMin + Math.random() * (g.x[1] - g.x[0]);
-          p.y = inletY0 + Math.random() * (inletY1 - inletY0);
-        }
-      }
-    }
-
-    // Transform particle physical coords → canvas coords for drawing
-    function drawParticlesTransformed() {
-      if (!gridData) return;
-      const g = gridData;
-      const xScale = CANVAS_W / g.x[g.x.length - 1];
-      const yScale = CANVAS_H / g.y[g.y.length - 1];
-      ctx.fillStyle = '#ffffff';
-      for (const p of particles) {
-        const cx = p.x * xScale;
-        const cy = CANVAS_H - p.y * yScale;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 2.5, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-      // Glow
-      ctx.fillStyle = 'rgba(255,255,255,0.2)';
-      for (const p of particles) {
-        const cx = p.x * xScale;
-        const cy = CANVAS_H - p.y * yScale;
-        ctx.beginPath();
-        ctx.arc(cx, cy, 5.5, 0, 2 * Math.PI);
-        ctx.fill();
-      }
-    }
-
-    // ── Animation ─────────────────────────────────────────────────────────────
-    let lastTime = null;
-    function animate(timestamp) {
-      if (!running) { lastTime = null; requestAnimationFrame(animate); return; }
-      if (!gridData) { requestAnimationFrame(animate); return; }
-
-      if (lastTime === null) lastTime = timestamp;
-      let dt = (timestamp - lastTime) / 1000;
-      lastTime = timestamp;
-      if (dt > 0.1) dt = 0.016;
-
-      if (colorImage) ctx.putImageData(colorImage, 0, 0);
-      updateParticles(dt);
-      drawParticlesTransformed();
-      requestAnimationFrame(animate);
-    }
-
-    // ── Simulate ──────────────────────────────────────────────────────────────
-    simBtn.addEventListener('click', async () => {
-      try {
-        loadingEl.classList.remove('hidden');
-        errorBox.classList.add('hidden');
-        running = false; // pause animation during solve
-
-        const U   = parseFloat(USlider.value);
-        const h   = parseFloat(hSlider.value);
-        const nx  = parseInt(nxSlider.value, 10);
-        const ny  = parseInt(nySlider.value, 10);
-        const iter = parseInt(iterSlider.value, 10);
-
-        // Yield to UI so the loading indicator renders before blocking
-        await new Promise(r => setTimeout(r, 50));
-
-        const json = compute_backward_step(U, h, nx, ny, iter);
-        gridData = JSON.parse(json);
-
-        if (!gridData.x.length) {
-          throw new Error('Malha muito grande (máx 120×60). Reduza nx ou ny.');
-        }
-
-        loadingEl.classList.add('hidden');
-        drawColorMap();
-        initParticles();
-        running = true;
-        lastTime = null;
-        requestAnimationFrame(animate);
-
-      } catch (e) {
-        loadingEl.classList.add('hidden');
-        showError(e?.message ?? String(e));
-      }
-    });
-
-    // ── Pause ─────────────────────────────────────────────────────────────────
-    pauseBtn.addEventListener('click', () => {
-      running = !running;
-      pauseBtn.textContent = running ? '⏸ Pausar partículas' : '▶ Retomar partículas';
-      if (running) { lastTime = null; requestAnimationFrame(animate); }
-    });
-
-    // ── Start animation loop (idle until simulation runs) ─────────────────────
+    pauseBtn.addEventListener('click',()=>{animRunning=!animRunning;pauseBtn.textContent=animRunning?'⏸ Pausar partículas':'▶ Retomar partículas';if(animRunning){lastTime=null;requestAnimationFrame(animate);}});
     requestAnimationFrame(animate);
   </script>
 </body>
