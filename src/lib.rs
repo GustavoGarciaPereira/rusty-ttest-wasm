@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 pub mod simulation;
 pub mod poiseuille;
 pub mod couette;
+pub mod backward_step;
 
 // ─── Utility functions ────────────────────────────────────────────────────────
 

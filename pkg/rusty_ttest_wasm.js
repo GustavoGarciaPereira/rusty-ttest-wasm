@@ -472,6 +472,29 @@ export class PoiseuilleParams {
 if (Symbol.dispose) PoiseuilleParams.prototype[Symbol.dispose] = PoiseuilleParams.prototype.free;
 
 /**
+ * Run the 2D SIMPLE solver for a backward‑facing step and return all
+ * fields as JSON.
+ * @param {number} U_in
+ * @param {number} h_in
+ * @param {number} nx
+ * @param {number} ny
+ * @param {number} max_iter
+ * @returns {string}
+ */
+export function compute_backward_step(U_in, h_in, nx, ny, max_iter) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.compute_backward_step(U_in, h_in, nx, ny, max_iter);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
+}
+
+/**
  * JS-facing entry-point: returns both analytical and numerical Couette
  * velocity profiles as a JSON string.
  * @param {number} U
@@ -569,6 +592,33 @@ export function independent_t_test(group_a, group_b) {
 }
 
 /**
+ * Return a pair `(u, v)` from pre‑computed arrays (called from JS).
+ * @param {number} x
+ * @param {number} y
+ * @param {Float64Array} xs
+ * @param {Float64Array} ys
+ * @param {Float64Array} u_flat
+ * @param {Float64Array} v_flat
+ * @param {number} nx
+ * @param {number} ny
+ * @returns {Float64Array}
+ */
+export function interpolate_velocity(x, y, xs, ys, u_flat, v_flat, nx, ny) {
+    const ptr0 = passArrayF64ToWasm0(xs, wasm.__wbindgen_malloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ptr1 = passArrayF64ToWasm0(ys, wasm.__wbindgen_malloc);
+    const len1 = WASM_VECTOR_LEN;
+    const ptr2 = passArrayF64ToWasm0(u_flat, wasm.__wbindgen_malloc);
+    const len2 = WASM_VECTOR_LEN;
+    const ptr3 = passArrayF64ToWasm0(v_flat, wasm.__wbindgen_malloc);
+    const len3 = WASM_VECTOR_LEN;
+    const ret = wasm.interpolate_velocity(x, y, ptr0, len0, ptr1, len1, ptr2, len2, ptr3, len3, nx, ny);
+    var v5 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v5;
+}
+
+/**
  * @param {string} data
  * @param {number} mu
  * @returns {OneSampleResult}
@@ -635,6 +685,22 @@ export function velocity_analytical_couette(y, U, h) {
     return ret;
 }
 
+/**
+ * Return (u, v) at a physical point by bilinear interpolation from
+ * the staggered‑grid fields. Assumes the fields have been computed.
+ * @param {number} _x
+ * @param {number} y
+ * @param {number} U_in
+ * @param {number} h_in
+ * @returns {Float64Array}
+ */
+export function velocity_at(_x, y, U_in, h_in) {
+    const ret = wasm.velocity_at(_x, y, U_in, h_in);
+    var v1 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v1;
+}
+
 function __wbg_get_imports() {
     const import0 = {
         __proto__: null,
@@ -682,9 +748,22 @@ const PoiseuilleParamsFinalization = (typeof FinalizationRegistry === 'undefined
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_poiseuilleparams_free(ptr >>> 0, 1));
 
+function getArrayF64FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
+}
+
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
+let cachedFloat64ArrayMemory0 = null;
+function getFloat64ArrayMemory0() {
+    if (cachedFloat64ArrayMemory0 === null || cachedFloat64ArrayMemory0.byteLength === 0) {
+        cachedFloat64ArrayMemory0 = new Float64Array(wasm.memory.buffer);
+    }
+    return cachedFloat64ArrayMemory0;
 }
 
 function getStringFromWasm0(ptr, len) {
@@ -698,6 +777,13 @@ function getUint8ArrayMemory0() {
         cachedUint8ArrayMemory0 = new Uint8Array(wasm.memory.buffer);
     }
     return cachedUint8ArrayMemory0;
+}
+
+function passArrayF64ToWasm0(arg, malloc) {
+    const ptr = malloc(arg.length * 8, 8) >>> 0;
+    getFloat64ArrayMemory0().set(arg, ptr / 8);
+    WASM_VECTOR_LEN = arg.length;
+    return ptr;
 }
 
 function passStringToWasm0(arg, malloc, realloc) {
@@ -776,6 +862,7 @@ let wasmModule, wasm;
 function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
+    cachedFloat64ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
     return wasm;

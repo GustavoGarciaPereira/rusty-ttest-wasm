@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Backward Step Perfis — rusty-ttest-wasm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    body { max-width: 860px; margin: 2rem auto; padding: 0 1rem; }
+    .hidden { display: none !important; }
+
+    .slider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .slider-grid label { margin-bottom: 0.25rem; font-weight: 600; }
+    .slider-grid input[type="range"] { width: 100%; }
+    .slider-grid .value-display {
+      text-align: right; font-size: 0.85rem;
+      color: var(--pico-muted-color);
+    }
+
+    .plot-canvas {
+      display: block; margin-top: 1rem;
+      border-radius: var(--pico-border-radius);
+      border: 1px solid var(--pico-muted-border-color);
+      width: 100%; max-width: 700px; height: auto;
+    }
+
+    #loading-indicator {
+      text-align: center; padding: 2rem;
+      font-size: 1.1rem; color: var(--pico-primary);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p>
+      <a href="index.html">&larr; Voltar ao menu</a>
+      <button id="btn-theme-toggle" class="secondary" style="float:right; font-size:1.2rem;" title="Alternar tema claro/escuro">🌙</button>
+    </p>
+    <h1>🌊 Degrau Retangular — Perfis de Validação</h1>
+    <p>Perfis de velocidade u(y) e queda de pressão p(x) — solver SIMPLE 2D (Rust + WASM)</p>
+  </header>
+
+  <main>
+    <article>
+      <div class="slider-grid">
+        <div>
+          <label for="U-slider"><em>U<sub>in</sub></em></label>
+          <input type="range" id="U-slider" min="0.5" max="5" step="0.1" value="1" />
+          <div class="value-display"><span id="U-value">1.0</span></div>
+        </div>
+        <div>
+          <label for="h-slider"><em>h<sub>in</sub></em></label>
+          <input type="range" id="h-slider" min="0.5" max="2" step="0.1" value="1" />
+          <div class="value-display"><span id="h-value">1.0</span></div>
+        </div>
+        <div>
+          <label for="nx-slider"><em>nx</em></label>
+          <input type="range" id="nx-slider" min="40" max="100" step="5" value="60" />
+          <div class="value-display"><span id="nx-value">60</span></div>
+        </div>
+        <div>
+          <label for="ny-slider"><em>ny</em></label>
+          <input type="range" id="ny-slider" min="20" max="50" step="5" value="30" />
+          <div class="value-display"><span id="ny-value">30</span></div>
+        </div>
+        <div>
+          <label for="iter-slider"><em>max_iter</em></label>
+          <input type="range" id="iter-slider" min="500" max="5000" step="100" value="1500" />
+          <div class="value-display"><span id="iter-value">1500</span></div>
+        </div>
+      </div>
+
+      <button id="btn-simulate">🚀 Simular</button>
+
+      <div id="loading-indicator" class="hidden">
+        <p>🔄 Resolvendo escoamento... Aguarde alguns segundos.</p>
+        <progress></progress>
+      </div>
+
+      <canvas id="vel-canvas" class="plot-canvas" width="700" height="350"></canvas>
+      <canvas id="pres-canvas" class="plot-canvas" width="700" height="250"></canvas>
+    </article>
+
+    <div id="error-box" class="hidden">
+      <article style="border-color: var(--pico-color-red-500);">
+        <strong>Erro:</strong> <span id="error-msg"></span>
+      </article>
+    </div>
+  </main>
+
+  <script type="module">
+    import init, { compute_backward_step }
+      from './pkg/rusty_ttest_wasm.js';
+
+    await init();
+
+    // ── Theme toggle ──────────────────────────────────────────────────────────
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('btn-theme-toggle');
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') html.setAttribute('data-theme', saved);
+    themeBtn.textContent = html.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+    themeBtn.addEventListener('click', () => {
+      const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      themeBtn.textContent = next === 'light' ? '☀️' : '🌙';
+      if (gridData) { drawVelPlot(); drawPresPlot(); }
+    });
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const USlider    = document.getElementById('U-slider');
+    const hSlider    = document.getElementById('h-slider');
+    const nxSlider   = document.getElementById('nx-slider');
+    const nySlider   = document.getElementById('ny-slider');
+    const iterSlider = document.getElementById('iter-slider');
+    const UValue     = document.getElementById('U-value');
+    const hValue     = document.getElementById('h-value');
+    const nxValue    = document.getElementById('nx-value');
+    const nyValue    = document.getElementById('ny-value');
+    const iterValue  = document.getElementById('iter-value');
+    const simBtn     = document.getElementById('btn-simulate');
+    const loadingEl  = document.getElementById('loading-indicator');
+    const velCanvas  = document.getElementById('vel-canvas');
+    const velCtx     = velCanvas.getContext('2d');
+    const presCanvas = document.getElementById('pres-canvas');
+    const presCtx    = presCanvas.getContext('2d');
+    const errorBox   = document.getElementById('error-box');
+    const errorMsg   = document.getElementById('error-msg');
+
+    let gridData = null;
+
+    // ── Live value displays ───────────────────────────────────────────────────
+    USlider.addEventListener('input',    () => UValue.textContent    = USlider.value);
+    hSlider.addEventListener('input',    () => hValue.textContent    = hSlider.value);
+    nxSlider.addEventListener('input',   () => nxValue.textContent   = nxSlider.value);
+    nySlider.addEventListener('input',   () => nyValue.textContent   = nySlider.value);
+    iterSlider.addEventListener('input', () => iterValue.textContent = iterSlider.value);
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+
+    // ── Drawing helpers ───────────────────────────────────────────────────────
+    function getColors() {
+      const dark = html.getAttribute('data-theme') !== 'light';
+      return {
+        bg:   dark ? '#11191f' : '#ffffff',
+        grid: dark ? '#2a3540' : '#d0d0d0',
+        axis: dark ? '#bbc6d3' : '#333333',
+        text: dark ? '#bbc6d3' : '#333333',
+      };
+    }
+
+    function drawAxes(ctx, w, h, xLabel, yLabel, margin) {
+      const c = getColors();
+      const pw = w - margin.l - margin.r;
+      const ph = h - margin.t - margin.b;
+
+      ctx.fillStyle = c.bg;
+      ctx.fillRect(0, 0, w, h);
+
+      // Grid
+      ctx.strokeStyle = c.grid; ctx.lineWidth = 1;
+      const n = 5;
+      for (let i = 0; i <= n; i++) {
+        const gx = margin.l + (i/n)*pw;
+        ctx.beginPath(); ctx.moveTo(gx, margin.t); ctx.lineTo(gx, margin.t + ph); ctx.stroke();
+        const gy = margin.t + ph - (i/n)*ph;
+        ctx.beginPath(); ctx.moveTo(margin.l, gy); ctx.lineTo(margin.l + pw, gy); ctx.stroke();
+      }
+
+      // Axes
+      ctx.strokeStyle = c.axis; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(margin.l, margin.t); ctx.lineTo(margin.l, margin.t + ph); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(margin.l, margin.t + ph); ctx.lineTo(margin.l + pw, margin.t + ph); ctx.stroke();
+
+      // Labels
+      ctx.fillStyle = c.text; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(xLabel, margin.l + pw/2, margin.t + ph + 32);
+      ctx.save();
+      ctx.translate(12, margin.t + ph/2);
+      ctx.rotate(-Math.PI/2);
+      ctx.textAlign = 'center';
+      ctx.fillText(yLabel, 0, 0);
+      ctx.restore();
+    }
+
+    // ── Velocity profile plot ─────────────────────────────────────────────────
+    function drawVelPlot() {
+      const g = gridData;
+      const w = velCanvas.width, h = velCanvas.height;
+      const margin = { t: 30, r: 20, b: 45, l: 55 };
+      const pw = w - margin.l - margin.r;
+      const ph = h - margin.t - margin.b;
+      const ctx = velCtx;
+      const c = getColors();
+
+      drawAxes(ctx, w, h, 'Posição y', 'Velocidade u(y)', margin);
+
+      const nx = g.x.length, ny = g.y.length;
+      const xMin = g.x[0], xMax = g.x[nx-1];
+      const yMin = g.y[0], yMax = g.y[ny-1];
+      const hIn = parseFloat(hSlider.value);
+      const L = xMax;
+
+      // Choose profile stations as fractions of domain length
+      const stations = [0.05, 0.15, 0.4, 0.8]; // before step, just after, recovery, near outlet
+      const colors = ['#ff4136', '#ff851b', '#2ecc40', '#0074d9'];
+      const labels = ['x ≈ 0.5 (antes)', 'x ≈ 1.5 (após degrau)', 'x ≈ 4.0 (meio)', 'x ≈ 8.0 (saída)'];
+
+      // Find max u across all stations for scaling
+      let uMax = 0;
+      for (let s = 0; s < stations.length; s++) {
+        const xi = Math.round(stations[s] * (nx - 1));
+        for (let j = 0; j < ny; j++) uMax = Math.max(uMax, g.u[xi][j]);
+      }
+
+      function toX(yv) { return margin.l + (yv - yMin) / (yMax - yMin) * pw; }
+      function toY(uv) { return margin.t + ph - (uv / uMax) * ph; }
+
+      // X-axis ticks
+      ctx.fillStyle = c.text; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+      for (let i = 0; i <= 5; i++) {
+        const val = yMin + (i/5)*(yMax - yMin);
+        ctx.fillText(val.toFixed(2), margin.l + (i/5)*pw, margin.t + ph + 16);
+      }
+
+      // Y-axis ticks
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 5; i++) {
+        const val = (i/5) * uMax;
+        ctx.fillText(val.toFixed(2), margin.l - 6, margin.t + ph - (i/5)*ph + 4);
+      }
+
+      // Draw profiles
+      for (let s = 0; s < stations.length; s++) {
+        const xi = Math.round(stations[s] * (nx - 1));
+        ctx.strokeStyle = colors[s];
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        for (let j = 0; j < ny; j++) {
+          const cx = toX(g.y[j]);
+          const cy = toY(g.u[xi][j]);
+          if (j === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+        }
+        ctx.stroke();
+      }
+
+      // Legend
+      ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+      const lx = margin.l + 8, ly = margin.t + 8;
+      for (let s = 0; s < stations.length; s++) {
+        ctx.fillStyle = colors[s];
+        ctx.fillRect(lx, ly + s*18, 14, 3);
+        ctx.fillStyle = c.text;
+        ctx.fillText(labels[s], lx + 18, ly + s*18 + 5);
+      }
+    }
+
+    // ── Pressure profile plot ─────────────────────────────────────────────────
+    function drawPresPlot() {
+      const g = gridData;
+      const w = presCanvas.width, h = presCanvas.height;
+      const margin = { t: 25, r: 20, b: 40, l: 55 };
+      const ctx = presCtx;
+
+      drawAxes(ctx, w, h, 'Posição x', 'Pressão p(x) (centro)', margin);
+
+      const nx = g.x.length, ny = g.y.length;
+      const xVals = g.x;
+      const pw = w - margin.l - margin.r;
+      const ph = h - margin.t - margin.b;
+      const c = getColors();
+
+      // Extract centreline pressure (j near ny/2, but above the step region)
+      const jMid = Math.floor(ny * 0.75); // upper half, above the step
+      const jMid2 = Math.floor(ny * 0.5);
+      const pMid = xVals.map((_, i) => g.p[i][jMid]);
+      const pLow = xVals.map((_, i) => g.p[i][jMid2]);
+
+      let pMin = Infinity, pMax = -Infinity;
+      for (const p of pMid) { pMin = Math.min(pMin, p); pMax = Math.max(pMax, p); }
+      const pRange = pMax - pMin || 1;
+
+      function toX(xv) { return margin.l + (xv - xVals[0]) / (xVals[nx-1] - xVals[0]) * pw; }
+      function toY(pv) { return margin.t + ph - ((pv - pMin) / pRange) * ph; }
+
+      // X ticks
+      ctx.fillStyle = c.text; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+      for (let i = 0; i <= 5; i++) {
+        const idx = Math.round((i/5)*(nx-1));
+        ctx.fillText(xVals[idx].toFixed(1), margin.l + (i/5)*pw, margin.t + ph + 16);
+      }
+
+      // Y ticks
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 5; i++) {
+        const val = pMin + (i/5)*pRange;
+        ctx.fillText(val.toFixed(3), margin.l - 6, margin.t + ph - (i/5)*ph + 4);
+      }
+
+      // Centreline (upper)
+      ctx.strokeStyle = '#ff4136'; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      for (let i = 0; i < nx; i++) {
+        const cx = toX(xVals[i]), cy = toY(pMid[i]);
+        if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+
+      // Lower line (dashed)
+      ctx.strokeStyle = '#ff851b'; ctx.lineWidth = 2; ctx.setLineDash([6, 3]);
+      ctx.beginPath();
+      for (let i = 0; i < nx; i++) {
+        const cx = toX(xVals[i]), cy = toY(pLow[i]);
+        if (i === 0) ctx.moveTo(cx, cy); else ctx.lineTo(cx, cy);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Legend
+      ctx.font = '11px sans-serif'; ctx.textAlign = 'left';
+      const lx = margin.l + 8, ly = margin.t + 8;
+      ctx.fillStyle = '#ff4136'; ctx.fillRect(lx, ly, 14, 3);
+      ctx.fillStyle = c.text; ctx.fillText('p(x) centro-superior', lx + 18, ly + 4);
+      ctx.fillStyle = '#ff851b'; ctx.fillRect(lx, ly + 16, 14, 3);
+      ctx.fillText('p(x) meio', lx + 18, ly + 20);
+    }
+
+    // ── Simulate ──────────────────────────────────────────────────────────────
+    simBtn.addEventListener('click', async () => {
+      try {
+        loadingEl.classList.remove('hidden');
+        errorBox.classList.add('hidden');
+
+        const U   = parseFloat(USlider.value);
+        const h   = parseFloat(hSlider.value);
+        const nx  = parseInt(nxSlider.value, 10);
+        const ny  = parseInt(nySlider.value, 10);
+        const iter = parseInt(iterSlider.value, 10);
+
+        await new Promise(r => setTimeout(r, 50));
+        const json = compute_backward_step(U, h, nx, ny, iter);
+        gridData = JSON.parse(json);
+
+        if (!gridData.x.length) {
+          throw new Error('Malha muito grande (máx 120×60). Reduza nx ou ny.');
+        }
+
+        loadingEl.classList.add('hidden');
+        drawVelPlot();
+        drawPresPlot();
+
+      } catch (e) {
+        loadingEl.classList.add('hidden');
+        showError(e?.message ?? String(e));
+      }
+    });
+  </script>
+</body>
+</html>

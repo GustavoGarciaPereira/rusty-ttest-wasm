@@ -81,6 +81,12 @@ export class PoiseuilleParams {
 }
 
 /**
+ * Run the 2D SIMPLE solver for a backward‑facing step and return all
+ * fields as JSON.
+ */
+export function compute_backward_step(U_in: number, h_in: number, nx: number, ny: number, max_iter: number): string;
+
+/**
  * JS-facing entry-point: returns both analytical and numerical Couette
  * velocity profiles as a JSON string.
  */
@@ -109,6 +115,11 @@ export function generate_field_image(width: number, height: number, charges_json
 
 export function independent_t_test(group_a: string, group_b: string): IndependentResult;
 
+/**
+ * Return a pair `(u, v)` from pre‑computed arrays (called from JS).
+ */
+export function interpolate_velocity(x: number, y: number, xs: Float64Array, ys: Float64Array, u_flat: Float64Array, v_flat: Float64Array, nx: number, ny: number): Float64Array;
+
 export function one_sample_t_test(data: string, mu: number): OneSampleResult;
 
 export function paired_t_test(before: string, after: string): PairedResult;
@@ -132,6 +143,12 @@ export function velocity_analytical(r: number, R: number, dpdx: number, mu: numb
  * moving (y=h) plates.
  */
 export function velocity_analytical_couette(y: number, U: number, h: number): number;
+
+/**
+ * Return (u, v) at a physical point by bilinear interpolation from
+ * the staggered‑grid fields. Assumes the fields have been computed.
+ */
+export function velocity_at(_x: number, y: number, U_in: number, h_in: number): Float64Array;
 
 export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembly.Module;
 
@@ -185,6 +202,9 @@ export interface InitOutput {
     readonly __wbg_get_pairedresult_p_value: (a: number) => number;
     readonly __wbg_get_pairedresult_std_dev_diff: (a: number) => number;
     readonly __wbg_get_pairedresult_t_score: (a: number) => number;
+    readonly compute_backward_step: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly interpolate_velocity: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number];
+    readonly velocity_at: (a: number, b: number, c: number, d: number) => [number, number];
     readonly __wbg_charge_free: (a: number, b: number) => void;
     readonly __wbg_get_charge_q: (a: number) => number;
     readonly __wbg_get_charge_x: (a: number) => number;
