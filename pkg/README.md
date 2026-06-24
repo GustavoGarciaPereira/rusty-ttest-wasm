@@ -1,59 +1,105 @@
-# 🦀 Rusty T-Test Wasm
+# 🦀 Rusty TTest Wasm
 
-Uma calculadora estatística de alta performance rodando inteiramente no navegador. Este projeto implementa os 3 principais Testes-t de Student (One-sample, Independent/Welch e Paired) utilizando um motor matemático em **Rust** compilado para **WebAssembly (Wasm)**, integrado a uma interface ágil em Vanilla JS.
+Calculadora estatística de alta performance + simulador de campo elétrico 2D — tudo rodando no navegador via **Rust** + **WebAssembly**.
 
-![Screenshot da Interface](https://img.shields.io/badge/UI-Pico.css-blue)
 ![Rust](https://img.shields.io/badge/Core-Rust_2021-orange)
 ![WebAssembly](https://img.shields.io/badge/Target-Wasm32-yellow)
+![UI](https://img.shields.io/badge/UI-Pico.css-blue)
+![Deploy](https://img.shields.io/badge/Deploy-GitHub_Pages-green)
 
-## ✨ Principais Funcionalidades
+🌐 **[Acessar aplicação](https://gustavogarciapereira.github.io/rusty-ttest-wasm/)**
 
-- **Cálculo Estatístico de Alta Precisão:** Suporte a One-Sample, Independent (Welch) e Paired T-tests.
-- **P-Value Bicaudal:** Cálculo de probabilidade com precisão acadêmica (utilizando a distribuição t de Student via crate `statrs`) e marcadores de significância (`*`, `**`, `***`).
-- **Importação Inteligente de CSV (Drag & Drop):** Arraste planilhas reais para o navegador. O sistema detecta automaticamente o separador (`,` ou `;`) e extrai apenas dados numéricos limpos.
-- **Mapeamento Dinâmico de Colunas:** Interface gerada dinamicamente para que o usuário relacione as colunas do CSV com as variáveis do teste.
-- **Privacidade Total (Local-first):** Nenhum dado é enviado para servidores. O parsing do CSV e o cálculo matemático ocorrem 100% na memória RAM do client-side.
+---
 
-## 🎯 Por que Rust + WebAssembly?
+## 🧭 Ferramentas
 
-Aplicações de análise de dados baseadas apenas em JavaScript puro costumam esbarrar em três problemas estruturais que esta arquitetura resolve nativamente:
+| Página | Descrição |
+|---|---|
+| `index.html` | Menu de navegação |
+| [`ttest.html`](https://gustavogarciapereira.github.io/rusty-ttest-wasm/ttest.html) | 📊 Testes-t estatísticos (One-sample, Welch, Pareado) |
+| [`campo-eletrico.html`](https://gustavogarciapereira.github.io/rusty-ttest-wasm/campo-eletrico.html) | 🧲 Simulação 2D de campo elétrico com Canvas |
 
-1. **Precisão Matemática:** O cálculo do P-value exige acesso à Função Distribuição Acumulada (CDF) da distribuição t. O ecossistema JS carece de bibliotecas matemáticas enxutas e precisas para isso. Usando Rust e a crate `statrs`, garantimos resultados equiparáveis ao R ou SciPy.
-2. **Type Safety e Tratamento de Erros:** O JavaScript propaga falhas matemáticas silenciosamente (ex: divisões por zero gerando `NaN` ou `Infinity`). A tipagem rígida do Rust e o modelo de `Result<T, E>` nos forçam a tratar casos de borda (como desvio padrão zero) em tempo de compilação, retornando erros claros para a UI.
-3. **Isolamento de Responsabilidades:** O JS atua apenas como a "cola" visual (manipulando a DOM e a File API para o CSV), enquanto o Rust assume todo o "heavy lifting" matemático em velocidade quase nativa, sem onerar a thread principal do navegador.
+---
 
-## 🛠️ Casos de Uso
+## ✨ Funcionalidades
 
-Ideal para testes rápidos de hipóteses no dia a dia, como:
-- **Agronegócio:** Comparar ganho de peso em lotes de gado após mudança nutricional (Teste Pareado).
-- **Gestão Pública:** Analisar se há diferença estatística significativa nos gastos diários entre duas secretarias independentes (Teste de Welch).
-- **Educação/Saúde:** Validar se a média de uma amostra foge de um padrão nacional pré-estabelecido.
+### 📊 Testes-t Estatísticos
 
-## 💻 Como rodar localmente para desenvolvimento
+- **3 tipos de teste:** One-sample, Duas amostras independentes (Welch) e Pareado
+- **P-value bicaudal** com distribuição t de Student (crate `statrs`) e marcadores de significância (`*`, `**`, `***`)
+- **Upload de CSV** via drag & drop com detecção automática de separador (`,` ou `;`)
+- **Mapeamento dinâmico de colunas** — relacione colunas do CSV com as variáveis do teste
+- **100% client-side** — sem servidor, sem telemetria
 
-1. Clone o repositório:
-   ```bash
-   git clone [https://github.com/GustavoGarciaPereira/rusty-ttest-wasm.git](https://github.com/GustavoGarciaPereira/rusty-ttest-wasm.git)
-   cd rusty-ttest-wasm
+### 🧲 Simulação de Campo Elétrico
 
+- **Motor físico em Rust** — lei de Coulomb com softening para evitar singularidades
+- **Renderização direta no Canvas** — saída `Uint8ClampedArray` nativa, sem serialização
+- **Coloração HSV** — matiz = direção do campo, brilho = intensidade (curva √ para realçar regiões fracas)
+- **Cargas aleatórias** — botão para adicionar cargas com posição e magnitude randômicas
+- **Toggle claro/escuro** 🌙☀️ com persistência em `localStorage`
 
-2. Compile o código Rust para WebAssembly:
+---
+
+## 🏗️ Arquitetura
+
+```
+src/
+├── lib.rs              → Módulo de testes-t (One-sample, Welch, Pareado) + exports WASM
+└── simulation.rs       → Struct Charge + solver de campo elétrico + bridge WASM
+
+frontend/
+├── index.html          → Menu com cards para as ferramentas
+├── ttest.html          → UI completa dos testes-t (Pico.css + Vanilla JS)
+└── campo-eletrico.html → UI do simulador de campo elétrico (Pico.css + Canvas)
+
+pkg/                    → Artefatos WASM commitados (deploy direto no GitHub Pages)
+```
+
+### Stack
+
+| Camada | Tecnologia |
+|---|---|
+| Motor matemático | Rust 2021 (`statrs`, `serde`, `serde_json`) |
+| Compilação WASM | `wasm-bindgen` + `wasm-pack` |
+| Bridge JS↔WASM | `js-sys::Uint8ClampedArray` (zero-cópia) |
+| Frontend | Vanilla JS + ES Modules + Pico.css |
+| Deploy | GitHub Actions → GitHub Pages |
+
+---
+
+## 💻 Desenvolvimento local
+
 ```bash
+# 1. Clone
+git clone https://github.com/GustavoGarciaPereira/rusty-ttest-wasm.git
+cd rusty-ttest-wasm
+
+# 2. Compile Rust → WASM
 wasm-pack build --target web
-```
 
-3. Inicie um servidor local (necessário para carregar módulos Wasm sem bloqueios de CORS):
-```bash
+# 3. Sirva localmente (necessário para módulos ES)
 python -m http.server 8000
+
+# 4. Acesse http://localhost:8000
 ```
 
-4. Acesse http://localhost:8000 no seu navegador.
-
-🧪 Testes Unitários
-O core matemático foi construído isolando a lógica pura do bindgen do JS. Isso permite rodar a suíte de validação estatística nativamente em x86:
-<img width="358" height="886" alt="image" src="https://github.com/user-attachments/assets/ffac4aae-583f-459d-8bd5-8bc285e367a0" />
-
+### Testes
 
 ```bash
 cargo test
 ```
+
+O core matemático é isolado do `#[wasm_bindgen]`, permitindo rodar a suíte de validação nativamente em x86.
+
+---
+
+## 🚀 Deploy (GitHub Pages)
+
+O deploy é automático via GitHub Actions — push na branch `main` dispara:
+
+1. Checkout do código + instalação do Rust e `wasm-pack`
+2. `wasm-pack build --target web`
+3. Upload da raiz (`index.html`, `ttest.html`, `campo-eletrico.html`, `pkg/`) para o GitHub Pages
+
+Os artefatos `pkg/` também são commitados para evitar problemas de cache/respeito a `.gitignore` pela action de upload.

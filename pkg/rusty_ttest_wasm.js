@@ -395,6 +395,83 @@ export class PairedResult {
 if (Symbol.dispose) PairedResult.prototype[Symbol.dispose] = PairedResult.prototype.free;
 
 /**
+ * Parameters for a Poiseuille (laminar pipe) flow.
+ */
+export class PoiseuilleParams {
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        PoiseuilleParamsFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_poiseuilleparams_free(ptr, 0);
+    }
+    /**
+     * Number of radial sample points.
+     * @returns {number}
+     */
+    get N() {
+        const ret = wasm.__wbg_get_poiseuilleparams_N(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Pipe radius.
+     * @returns {number}
+     */
+    get R() {
+        const ret = wasm.__wbg_get_poiseuilleparams_R(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Pressure gradient (positive when flow is in the +z direction).
+     * @returns {number}
+     */
+    get dpdx() {
+        const ret = wasm.__wbg_get_poiseuilleparams_dpdx(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Dynamic viscosity.
+     * @returns {number}
+     */
+    get mu() {
+        const ret = wasm.__wbg_get_poiseuilleparams_mu(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Number of radial sample points.
+     * @param {number} arg0
+     */
+    set N(arg0) {
+        wasm.__wbg_set_poiseuilleparams_N(this.__wbg_ptr, arg0);
+    }
+    /**
+     * Pipe radius.
+     * @param {number} arg0
+     */
+    set R(arg0) {
+        wasm.__wbg_set_poiseuilleparams_R(this.__wbg_ptr, arg0);
+    }
+    /**
+     * Pressure gradient (positive when flow is in the +z direction).
+     * @param {number} arg0
+     */
+    set dpdx(arg0) {
+        wasm.__wbg_set_poiseuilleparams_dpdx(this.__wbg_ptr, arg0);
+    }
+    /**
+     * Dynamic viscosity.
+     * @param {number} arg0
+     */
+    set mu(arg0) {
+        wasm.__wbg_set_poiseuilleparams_mu(this.__wbg_ptr, arg0);
+    }
+}
+if (Symbol.dispose) PoiseuilleParams.prototype[Symbol.dispose] = PoiseuilleParams.prototype.free;
+
+/**
  * JS-facing entry-point: computes the field and returns a `Uint8ClampedArray`
  * ready for direct use with a `<canvas>` via `ImageData`.
  * @param {number} width
@@ -408,6 +485,28 @@ export function compute_electric_field(width, height, charges_json, k) {
     const len0 = WASM_VECTOR_LEN;
     const ret = wasm.compute_electric_field(width, height, ptr0, len0, k);
     return ret;
+}
+
+/**
+ * JS-facing entry-point: computes both the analytical and numerical
+ * Poiseuille velocity profiles and returns them as a JSON string.
+ * @param {number} R
+ * @param {number} mu
+ * @param {number} dpdx
+ * @param {number} N
+ * @returns {string}
+ */
+export function compute_poiseuille(R, mu, dpdx, N) {
+    let deferred1_0;
+    let deferred1_1;
+    try {
+        const ret = wasm.compute_poiseuille(R, mu, dpdx, N);
+        deferred1_0 = ret[0];
+        deferred1_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred1_0, deferred1_1, 1);
+    }
 }
 
 /**
@@ -523,6 +622,9 @@ const OneSampleResultFinalization = (typeof FinalizationRegistry === 'undefined'
 const PairedResultFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_pairedresult_free(ptr >>> 0, 1));
+const PoiseuilleParamsFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_poiseuilleparams_free(ptr >>> 0, 1));
 
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;

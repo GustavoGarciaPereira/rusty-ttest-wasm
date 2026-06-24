@@ -56,10 +56,41 @@ export class PairedResult {
 }
 
 /**
+ * Parameters for a Poiseuille (laminar pipe) flow.
+ */
+export class PoiseuilleParams {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Number of radial sample points.
+     */
+    N: number;
+    /**
+     * Pipe radius.
+     */
+    R: number;
+    /**
+     * Pressure gradient (positive when flow is in the +z direction).
+     */
+    dpdx: number;
+    /**
+     * Dynamic viscosity.
+     */
+    mu: number;
+}
+
+/**
  * JS-facing entry-point: computes the field and returns a `Uint8ClampedArray`
  * ready for direct use with a `<canvas>` via `ImageData`.
  */
 export function compute_electric_field(width: number, height: number, charges_json: string, k: number): Uint8ClampedArray;
+
+/**
+ * JS-facing entry-point: computes both the analytical and numerical
+ * Poiseuille velocity profiles and returns them as a JSON string.
+ */
+export function compute_poiseuille(R: number, mu: number, dpdx: number, N: number): string;
 
 /**
  * Compute the electric field produced by a set of point charges across a
@@ -137,6 +168,16 @@ export interface InitOutput {
     readonly __wbg_set_charge_y: (a: number, b: number) => void;
     readonly compute_electric_field: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly generate_field_image: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly __wbg_get_poiseuilleparams_N: (a: number) => number;
+    readonly __wbg_get_poiseuilleparams_R: (a: number) => number;
+    readonly __wbg_get_poiseuilleparams_dpdx: (a: number) => number;
+    readonly __wbg_get_poiseuilleparams_mu: (a: number) => number;
+    readonly __wbg_poiseuilleparams_free: (a: number, b: number) => void;
+    readonly __wbg_set_poiseuilleparams_N: (a: number, b: number) => void;
+    readonly __wbg_set_poiseuilleparams_R: (a: number, b: number) => void;
+    readonly __wbg_set_poiseuilleparams_dpdx: (a: number, b: number) => void;
+    readonly __wbg_set_poiseuilleparams_mu: (a: number, b: number) => void;
+    readonly compute_poiseuille: (a: number, b: number, c: number, d: number) => [number, number];
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

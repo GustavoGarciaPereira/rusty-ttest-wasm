@@ -2,6 +2,7 @@ use statrs::distribution::{ContinuousCDF, StudentsT};
 use wasm_bindgen::prelude::*;
 
 pub mod simulation;
+pub mod poiseuille;
 
 // ─── Utility functions ────────────────────────────────────────────────────────
 
