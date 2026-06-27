@@ -72,8 +72,8 @@
     kSlider.addEventListener('input',()=>kValue.textContent=kSlider.value);
     gridSlider.addEventListener('input',()=>gridValue.textContent=gridSlider.value);
 
-    zoomInBtn.addEventListener('click',()=>{if(!controls)return;const d=camera.position.distanceTo(controls.target);const step=d*0.3;camera.position.lerp(controls.target,step/d);controls.update();});
-    zoomOutBtn.addEventListener('click',()=>{if(!controls)return;const d=camera.position.distanceTo(controls.target);const step=-d*0.3;camera.position.lerp(controls.target,-step/d);controls.update();});
+    zoomInBtn.addEventListener('click',()=>{if(!controls)return;camera.position.lerp(controls.target,0.3);controls.update();});
+    zoomOutBtn.addEventListener('click',()=>{if(!controls)return;const dir=camera.position.clone().sub(controls.target);camera.position.addScaledVector(dir,0.3);controls.update();});
 
     let fileContent=null,atomData=null;
     fileInput.addEventListener('change',()=>{const f=fileInput.files[0];if(!f)return;const r=new FileReader();r.onload=e=>fileContent=e.target.result;r.readAsText(f);});
