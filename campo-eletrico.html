@@ -6,7 +6,7 @@
   <title>Campo Elétrico — rusty-ttest-wasm</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
   <style>
-    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+    body { max-width: 780px; margin: 2rem auto; padding: 0 1rem; }
     .hidden { display: none !important; }
     small.hint { color: var(--pico-muted-color); display: block; margin-top: -0.75rem; margin-bottom: 0.75rem; }
 
@@ -16,7 +16,7 @@
       border-radius: var(--pico-border-radius);
       border: 1px solid var(--pico-muted-border-color);
       width: 100%;
-      max-width: 600px;
+      max-width: 700px;
       height: auto;
     }
     .field-controls {
@@ -65,13 +65,13 @@
         </div>
       </div>
 
-      <div class="button-row">
+      <div class="button-row" role="group">
         <button id="btn-render-field">Renderizar Campo</button>
         <button id="btn-random-charges" class="secondary">➕ Adicionar Carga Aleatória</button>
         <button id="btn-toggle-arrows" class="secondary">Mostrar Setas</button>
       </div>
 
-      <canvas id="field-canvas" width="600" height="400"></canvas>
+      <canvas id="field-canvas" width="700" height="500"></canvas>
     </article>
 
     <div id="error-box" class="hidden">
