@@ -40,6 +40,22 @@ fn hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
 
 const SOFTENING: f64 = 0.1;
 
+/// Compute the electric field vector (Ex, Ey) at a single point.
+/// Shared helper — all field visualisations use this to avoid code duplication.
+fn field_at(x: f64, y: f64, charges: &[Charge], k: f64) -> (f64, f64) {
+    let mut ex = 0.0;
+    let mut ey = 0.0;
+    for charge in charges {
+        let dx = x - charge.x;
+        let dy = y - charge.y;
+        let r = (dx * dx + dy * dy).sqrt().max(SOFTENING);
+        let intensity = k * charge.q / (r * r);
+        ex += intensity * dx / r;
+        ey += intensity * dy / r;
+    }
+    (ex, ey)
+}
+
 /// Core field solver: compute the electric field for a set of charges and
 /// return a flat RGBA buffer.  This is the reusable, non‑WASM function.
 pub fn compute_field_data(
@@ -52,17 +68,7 @@ pub fn compute_field_data(
 
     for y in 0..height {
         for x in 0..width {
-            let mut ex_total = 0.0_f64;
-            let mut ey_total = 0.0_f64;
-
-            for charge in charges {
-                let dx = x as f64 - charge.x;
-                let dy = y as f64 - charge.y;
-                let r = (dx * dx + dy * dy).sqrt().max(SOFTENING);
-                let intensity = k * charge.q / (r * r);
-                ex_total += intensity * (dx / r);
-                ey_total += intensity * (dy / r);
-            }
+            let (ex_total, ey_total) = field_at(x as f64, y as f64, charges, k);
 
             let angle = ey_total.atan2(ex_total).to_degrees();
             let hue = angle.rem_euclid(360.0);
@@ -114,4 +120,61 @@ pub fn compute_electric_field(
 ) -> Uint8ClampedArray {
     let data = generate_field_image(width, height, charges_json, k);
     Uint8ClampedArray::from(&data[..])
+}
+
+/// Compute arrow data for vector field visualisation.
+///
+/// Returns a flat `Vec<f64>` where every 4 consecutive values encode one arrow:
+/// `[x, y, ex, ey, …]`.  `(x, y)` is the grid-point centre; `(ex, ey)` are the
+/// raw electric-field components at that point.  Points that lie within
+/// `exclusion_radius` of any charge are skipped to avoid drawing over charges.
+///
+/// The caller (JS) computes angle via `atan2(ey, ex)` and length via
+/// `clamp(sqrt(ex²+ey²) * scale, 0, maxLen)` — keeping visual tuning on the
+/// front-end side.
+#[wasm_bindgen]
+pub fn compute_arrows(
+    width: usize,
+    height: usize,
+    charges_json: &str,
+    k: f64,
+    grid_spacing: usize,
+) -> Result<Vec<f64>, JsValue> {
+    let charges: Vec<Charge> = serde_json::from_str(charges_json)
+        .map_err(|e| JsValue::from_str(&format!("Invalid charges JSON: {}", e)))?;
+
+    let spacing = grid_spacing.max(10);
+    let exclusion_radius = (spacing as f64 * 0.375).max(12.0);
+
+    let mut data: Vec<f64> = Vec::new();
+
+    let mut y = spacing as f64 / 2.0;
+    while y < height as f64 {
+        let mut x = spacing as f64 / 2.0;
+        while x < width as f64 {
+            // Skip points too close to any charge (singularity avoidance)
+            let mut too_close = false;
+            for charge in &charges {
+                let dx = x - charge.x;
+                let dy = y - charge.y;
+                if (dx * dx + dy * dy).sqrt() < exclusion_radius {
+                    too_close = true;
+                    break;
+                }
+            }
+
+            if !too_close {
+                let (ex, ey) = field_at(x, y, &charges, k);
+                data.push(x);
+                data.push(y);
+                data.push(ex);
+                data.push(ey);
+            }
+
+            x += spacing as f64;
+        }
+        y += spacing as f64;
+    }
+
+    Ok(data)
 }

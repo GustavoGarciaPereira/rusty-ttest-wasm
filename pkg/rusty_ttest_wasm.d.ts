@@ -81,6 +81,20 @@ export class PoiseuilleParams {
 }
 
 /**
+ * Compute arrow data for vector field visualisation.
+ *
+ * Returns a flat `Vec<f64>` where every 4 consecutive values encode one arrow:
+ * `[x, y, ex, ey, …]`.  `(x, y)` is the grid-point centre; `(ex, ey)` are the
+ * raw electric-field components at that point.  Points that lie within
+ * `exclusion_radius` of any charge are skipped to avoid drawing over charges.
+ *
+ * The caller (JS) computes angle via `atan2(ey, ex)` and length via
+ * `clamp(sqrt(ex²+ey²) * scale, 0, maxLen)` — keeping visual tuning on the
+ * front-end side.
+ */
+export function compute_arrows(width: number, height: number, charges_json: string, k: number, grid_spacing: number): Float64Array;
+
+/**
  * Run the 2D SIMPLE solver for a backward‑facing step and return all
  * fields as JSON.
  */
@@ -232,6 +246,8 @@ export interface InitOutput {
     readonly compute_backward_step: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly interpolate_velocity: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number];
     readonly velocity_at: (a: number, b: number, c: number, d: number) => [number, number];
+    readonly compute_couette: (a: number, b: number, c: number) => [number, number];
+    readonly velocity_analytical_couette: (a: number, b: number, c: number) => number;
     readonly __wbg_charge_free: (a: number, b: number) => void;
     readonly __wbg_get_charge_q: (a: number) => number;
     readonly __wbg_get_charge_x: (a: number) => number;
@@ -239,10 +255,9 @@ export interface InitOutput {
     readonly __wbg_set_charge_q: (a: number, b: number) => void;
     readonly __wbg_set_charge_x: (a: number, b: number) => void;
     readonly __wbg_set_charge_y: (a: number, b: number) => void;
+    readonly compute_arrows: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number, number, number];
     readonly compute_electric_field: (a: number, b: number, c: number, d: number, e: number) => any;
     readonly generate_field_image: (a: number, b: number, c: number, d: number, e: number) => [number, number];
-    readonly compute_couette: (a: number, b: number, c: number) => [number, number];
-    readonly velocity_analytical_couette: (a: number, b: number, c: number) => number;
     readonly __wbg_get_poiseuilleparams_N: (a: number) => number;
     readonly __wbg_get_poiseuilleparams_R: (a: number) => number;
     readonly __wbg_get_poiseuilleparams_dpdx: (a: number) => number;
@@ -255,10 +270,10 @@ export interface InitOutput {
     readonly compute_poiseuille: (a: number, b: number, c: number, d: number) => [number, number];
     readonly velocity_analytical: (a: number, b: number, c: number, d: number) => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
-    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
     readonly __externref_table_dealloc: (a: number) => void;
+    readonly __wbindgen_free: (a: number, b: number, c: number) => void;
     readonly __wbindgen_start: () => void;
 }
 

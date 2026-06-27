@@ -68,6 +68,7 @@
       <div class="button-row">
         <button id="btn-render-field">Renderizar Campo</button>
         <button id="btn-random-charges" class="secondary">➕ Adicionar Carga Aleatória</button>
+        <button id="btn-toggle-arrows" class="secondary">Mostrar Setas</button>
       </div>
 
       <canvas id="field-canvas" width="600" height="400"></canvas>
@@ -81,7 +82,7 @@
   </main>
 
   <script type="module">
-    import init, { compute_electric_field }
+    import init, { compute_electric_field, compute_arrows }
       from './pkg/rusty_ttest_wasm.js';
 
     await init();
@@ -113,7 +114,21 @@
     const renderBtn    = document.getElementById('btn-render-field');
     const fieldCanvas  = document.getElementById('field-canvas');
     const errorBox     = document.getElementById('error-box');
-    const errorMsg     = document.getElementById('error-msg');
+    const errorMsg        = document.getElementById('error-msg');
+    const toggleArrowsBtn = document.getElementById('btn-toggle-arrows');
+
+    // ── Arrow toggle state ────────────────────────────────────────────────────
+    let showArrows = false;
+
+    function updateToggleButton() {
+      if (showArrows) {
+        toggleArrowsBtn.textContent = 'Ocultar Setas';
+        toggleArrowsBtn.className   = 'contrast';
+      } else {
+        toggleArrowsBtn.textContent = 'Mostrar Setas';
+        toggleArrowsBtn.className   = 'secondary';
+      }
+    }
 
     function showError(msg) {
       errorMsg.textContent = msg;
@@ -157,6 +172,87 @@
       }
     });
 
+    // ── Toggle arrows ─────────────────────────────────────────────────────────
+    toggleArrowsBtn.addEventListener('click', () => {
+      showArrows = !showArrows;
+      updateToggleButton();
+      // Re-render to apply change (or clear arrows)
+      renderBtn.click();
+    });
+
+    // ── Draw arrows on canvas ─────────────────────────────────────────────────
+    function drawArrows() {
+      try {
+        const chargesJson = chargesInput.value.trim();
+        if (!chargesJson) return;
+
+        const k = parseFloat(kSlider.value) * parseFloat(scaleInput.value);
+        const w = fieldCanvas.width;
+        const h = fieldCanvas.height;
+
+        const arrowData = compute_arrows(w, h, chargesJson, k, 40);
+        if (arrowData.length === 0) return;
+
+        const ctx = fieldCanvas.getContext('2d');
+        const maxLen  = 28;      // max arrow length in pixels
+        const headLen = 7;       // arrowhead size
+
+        // First pass: find maximum magnitude for normalisation
+        let maxMag = 0.0;
+        for (let i = 0; i < arrowData.length; i += 4) {
+          const ex = arrowData[i + 2];
+          const ey = arrowData[i + 3];
+          const mag = Math.sqrt(ex * ex + ey * ey);
+          if (mag > maxMag) maxMag = mag;
+        }
+
+        const scale = maxMag > 1e-9 ? maxLen / maxMag : 0.0;
+
+        // Second pass: draw each arrow
+        for (let i = 0; i < arrowData.length; i += 4) {
+          const x  = arrowData[i];
+          const y  = arrowData[i + 1];
+          const ex = arrowData[i + 2];
+          const ey = arrowData[i + 3];
+
+          const mag = Math.sqrt(ex * ex + ey * ey);
+          if (mag < 1e-9) continue;
+
+          const angle = Math.atan2(ey, ex);
+          const len   = Math.min(mag * scale, maxLen);
+
+          const endX = x + Math.cos(angle) * len;
+          const endY = y + Math.sin(angle) * len;
+
+          // Shaft
+          ctx.beginPath();
+          ctx.moveTo(x, y);
+          ctx.lineTo(endX, endY);
+          ctx.strokeStyle = '#ffffcc';
+          ctx.lineWidth   = 1.5;
+          ctx.stroke();
+
+          // Arrowhead
+          if (len > 4) {
+            const leftX  = endX - Math.cos(angle - 0.6) * headLen;
+            const leftY  = endY - Math.sin(angle - 0.6) * headLen;
+            const rightX = endX - Math.cos(angle + 0.6) * headLen;
+            const rightY = endY - Math.sin(angle + 0.6) * headLen;
+
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(leftX, leftY);
+            ctx.lineTo(rightX, rightY);
+            ctx.closePath();
+            ctx.fillStyle = '#ffffcc';
+            ctx.fill();
+          }
+        }
+      } catch (e) {
+        // Silently skip arrows on error — colour map already rendered
+      }
+    }
+
     // ── Render ────────────────────────────────────────────────────────────────
     renderBtn.addEventListener('click', () => {
       try {
@@ -178,6 +274,11 @@
         );
         const ctx = fieldCanvas.getContext('2d');
         ctx.putImageData(imageData, 0, 0);
+
+        // Draw arrows on top if toggle is active
+        if (showArrows) {
+          drawArrows();
+        }
 
         errorBox.classList.add('hidden');
       } catch (e) {

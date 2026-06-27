@@ -472,6 +472,36 @@ export class PoiseuilleParams {
 if (Symbol.dispose) PoiseuilleParams.prototype[Symbol.dispose] = PoiseuilleParams.prototype.free;
 
 /**
+ * Compute arrow data for vector field visualisation.
+ *
+ * Returns a flat `Vec<f64>` where every 4 consecutive values encode one arrow:
+ * `[x, y, ex, ey, …]`.  `(x, y)` is the grid-point centre; `(ex, ey)` are the
+ * raw electric-field components at that point.  Points that lie within
+ * `exclusion_radius` of any charge are skipped to avoid drawing over charges.
+ *
+ * The caller (JS) computes angle via `atan2(ey, ex)` and length via
+ * `clamp(sqrt(ex²+ey²) * scale, 0, maxLen)` — keeping visual tuning on the
+ * front-end side.
+ * @param {number} width
+ * @param {number} height
+ * @param {string} charges_json
+ * @param {number} k
+ * @param {number} grid_spacing
+ * @returns {Float64Array}
+ */
+export function compute_arrows(width, height, charges_json, k, grid_spacing) {
+    const ptr0 = passStringToWasm0(charges_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.compute_arrows(width, height, ptr0, len0, k, grid_spacing);
+    if (ret[3]) {
+        throw takeFromExternrefTable0(ret[2]);
+    }
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
+}
+
+/**
  * Run the 2D SIMPLE solver for a backward‑facing step and return all
  * fields as JSON.
  * @param {number} U_in
