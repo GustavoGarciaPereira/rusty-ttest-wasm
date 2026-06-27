@@ -532,6 +532,25 @@ export function compute_electric_field(width, height, charges_json, k) {
 }
 
 /**
+ * Compute the 3D electric field on a uniform grid. Returns a flat array:
+ * `[x0,y0,z0,Ex0,Ey0,Ez0,  x1,y1,z1,Ex1,Ey1,Ez1,  ...]`.
+ * @param {string} charges_json
+ * @param {number} nx
+ * @param {number} ny
+ * @param {number} nz
+ * @param {number} k
+ * @returns {Float64Array}
+ */
+export function compute_field_3d(charges_json, nx, ny, nz, k) {
+    const ptr0 = passStringToWasm0(charges_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.compute_field_3d(ptr0, len0, nx, ny, nz, k);
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
+}
+
+/**
  * JS-facing entry-point: computes both the analytical and numerical
  * Poiseuille velocity profiles and returns them as a JSON string.
  * @param {number} R
@@ -554,8 +573,26 @@ export function compute_poiseuille(R, mu, dpdx, N) {
 }
 
 /**
- * Compute the electric field produced by a set of point charges across a
- * `width × height` pixel grid and return a flat RGBA byte buffer.
+ * Parse a SIESTA `.out` file, transform atomic coordinates to pixel space,
+ * compute the electric field, and return a flat RGBA buffer.
+ * @param {string} out_content
+ * @param {number} width
+ * @param {number} height
+ * @param {number} scale
+ * @param {number} k
+ * @returns {Uint8Array}
+ */
+export function generate_field_from_siesta(out_content, width, height, scale, k) {
+    const ptr0 = passStringToWasm0(out_content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.generate_field_from_siesta(ptr0, len0, width, height, scale, k);
+    var v2 = getArrayU8FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 1, 1);
+    return v2;
+}
+
+/**
+ * Compute the electric field from a JSON string and return a flat RGBA buffer.
  *
  * * `charges_json` – JSON-serialised `Vec<Charge>`.
  * * `k` – Coulomb constant (or an artistic scaling factor).
@@ -648,6 +685,45 @@ export function paired_t_test(before, after) {
         throw takeFromExternrefTable0(ret[1]);
     }
     return PairedResult.__wrap(ret[0]);
+}
+
+/**
+ * Parse a SIESTA `.out` file and return a JSON array of `{x, y, z, q, sym}`.
+ * @param {string} content
+ * @returns {string}
+ */
+export function parse_siesta_out_full(content) {
+    let deferred2_0;
+    let deferred2_1;
+    try {
+        const ptr0 = passStringToWasm0(content, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+        const len0 = WASM_VECTOR_LEN;
+        const ret = wasm.parse_siesta_out_full(ptr0, len0);
+        deferred2_0 = ret[0];
+        deferred2_1 = ret[1];
+        return getStringFromWasm0(ret[0], ret[1]);
+    } finally {
+        wasm.__wbindgen_free(deferred2_0, deferred2_1, 1);
+    }
+}
+
+/**
+ * Trace field lines from positive charges using RK4 integration.
+ * Returns a flat array of 3D points `[x0,y0,z0, x1,y1,z1, ...]`.
+ * Each line is terminated by a `[f64::NAN; 3]` sentinel.
+ * @param {string} charges_json
+ * @param {number} step_size
+ * @param {number} max_steps
+ * @param {number} k
+ * @returns {Float64Array}
+ */
+export function trace_field_lines(charges_json, step_size, max_steps, k) {
+    const ptr0 = passStringToWasm0(charges_json, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.trace_field_lines(ptr0, len0, step_size, max_steps, k);
+    var v2 = getArrayF64FromWasm0(ret[0], ret[1]).slice();
+    wasm.__wbindgen_free(ret[0], ret[1] * 8, 8);
+    return v2;
 }
 
 /**

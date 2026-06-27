@@ -1,11 +1,12 @@
 # 🦀 Rusty TTest Wasm
 
-Calculadora estatística de alta performance + simulador de campo elétrico 2D — tudo rodando no navegador via **Rust** + **WebAssembly**.
+Suite de ferramentas científicas de alta performance rodando no navegador via **Rust** + **WebAssembly**.
 
 ![Rust](https://img.shields.io/badge/Core-Rust_2021-orange)
 ![WebAssembly](https://img.shields.io/badge/Target-Wasm32-yellow)
 ![UI](https://img.shields.io/badge/UI-Pico.css-blue)
 ![Deploy](https://img.shields.io/badge/Deploy-GitHub_Pages-green)
+![Tests](https://img.shields.io/badge/Tests-22%2F22-brightgreen)
 
 🌐 **[Acessar aplicação](https://gustavogarciapereira.github.io/rusty-ttest-wasm/)**
 
@@ -13,31 +14,45 @@ Calculadora estatística de alta performance + simulador de campo elétrico 2D �
 
 ## 🧭 Ferramentas
 
-| Página | Descrição |
-|---|---|
-| `index.html` | Menu de navegação |
-| [`ttest.html`](https://gustavogarciapereira.github.io/rusty-ttest-wasm/ttest.html) | 📊 Testes-t estatísticos (One-sample, Welch, Pareado) |
-| [`campo-eletrico.html`](https://gustavogarciapereira.github.io/rusty-ttest-wasm/campo-eletrico.html) | 🧲 Simulação 2D de campo elétrico com Canvas |
+| # | Página | Descrição |
+|---|---|---|
+| 🏠 | `index.html` | Menu de navegação com 8 cards |
+| 📊 | [`ttest.html`](ttest.html) | Testes-t estatísticos (One-sample, Welch, Pareado) |
+| 🧲 | [`campo-eletrico.html`](campo-eletrico.html) | Simulação 2D de campo elétrico com Canvas |
+| 🌊 | [`poiseuille.html`](poiseuille.html) | Poiseuille — perfil parabólico (analítico vs numérico) |
+| 🎨 | [`poiseuille-visual.html`](poiseuille-visual.html) | Poiseuille — mapa de cores + partículas animadas |
+| 📐 | [`couette.html`](couette.html) | Couette — perfil linear (analítico vs numérico) |
+| 🎬 | [`couette-visual.html`](couette-visual.html) | Couette — mapa de cores + partículas animadas |
+| 📈 | [`backward-step.html`](backward-step.html) | Degrau — perfis u(y) e p(x) para validação |
+| 🔬 | [`backward-step-visual.html`](backward-step-visual.html) | Degrau — solver SIMPLE 2D + 200 partículas traçadoras |
 
 ---
 
 ## ✨ Funcionalidades
 
 ### 📊 Testes-t Estatísticos
+- 3 tipos: One-sample, Independentes (Welch), Pareado
+- P-value bicaudal com `statrs` e marcadores de significância (`*`, `**`, `***`)
+- Upload CSV via drag & drop, detecção de separador, mapeamento dinâmico de colunas
+- 100% client-side — zero servidor
 
-- **3 tipos de teste:** One-sample, Duas amostras independentes (Welch) e Pareado
-- **P-value bicaudal** com distribuição t de Student (crate `statrs`) e marcadores de significância (`*`, `**`, `***`)
-- **Upload de CSV** via drag & drop com detecção automática de separador (`,` ou `;`)
-- **Mapeamento dinâmico de colunas** — relacione colunas do CSV com as variáveis do teste
-- **100% client-side** — sem servidor, sem telemetria
+### 🧲 Campo Elétrico 2D
+- Motor físico em Rust: lei de Coulomb com softening, soma vetorial
+- Saída `Uint8ClampedArray` nativa (zero-cópia para o Canvas)
+- Coloração HSV: matiz = direção, brilho = √intensidade
+- Cargas aleatórias, toggle claro/escuro 🌙☀️
 
-### 🧲 Simulação de Campo Elétrico
+### 🌊📐🎨🎬 Escoamentos Laminares (Poiseuille & Couette)
+- Solução analítica exata + solver numérico via **diferenças finitas + TDMA**
+- 4 páginas: gráfico 2D e visualização interativa (mapa de cores + partículas) para cada
+- Animação em tempo real: partículas usam `velocity_analytical` via WASM por frame
+- Sliders com auto-update, controle de velocidade, pause/retomar
 
-- **Motor físico em Rust** — lei de Coulomb com softening para evitar singularidades
-- **Renderização direta no Canvas** — saída `Uint8ClampedArray` nativa, sem serialização
-- **Coloração HSV** — matiz = direção do campo, brilho = intensidade (curva √ para realçar regiões fracas)
-- **Cargas aleatórias** — botão para adicionar cargas com posição e magnitude randômicas
-- **Toggle claro/escuro** 🌙☀️ com persistência em `localStorage`
+### 🔬📈 Backward-Facing Step (Degrau Retangular)
+- **Solver SIMPLE 2D** completo: malha deslocada, upwind, Gauss-Seidel
+- 200 partículas traçadoras com interpolação bilinear em JS
+- Página de perfis: u(y) em 4 estações + p(x) na linha central
+- Proteção de malha (máx 120×60) para evitar estouro de memória WASM
 
 ---
 
@@ -45,25 +60,32 @@ Calculadora estatística de alta performance + simulador de campo elétrico 2D �
 
 ```
 src/
-├── lib.rs              → Módulo de testes-t (One-sample, Welch, Pareado) + exports WASM
-└── simulation.rs       → Struct Charge + solver de campo elétrico + bridge WASM
+├── lib.rs              → Testes-t + declaração dos 4 módulos
+├── simulation.rs       → Campo elétrico (Charge + solver HSV + bridge WASM)
+├── poiseuille.rs       → Poiseuille (analítico + TDMA + bridge WASM)
+├── couette.rs          → Couette (analítico + TDMA + bridge WASM)
+└── backward_step.rs    → SIMPLE 2D CFD solver (386 linhas)
 
 frontend/
-├── index.html          → Menu com cards para as ferramentas
-├── ttest.html          → UI completa dos testes-t (Pico.css + Vanilla JS)
-└── campo-eletrico.html → UI do simulador de campo elétrico (Pico.css + Canvas)
+├── index.html                  → Menu com 8 cards
+├── ttest.html                  → Testes-t
+├── campo-eletrico.html         → Campo elétrico
+├── poiseuille.html / poiseuille-visual.html
+├── couette.html / couette-visual.html
+└── backward-step.html / backward-step-visual.html
 
-pkg/                    → Artefatos WASM commitados (deploy direto no GitHub Pages)
+pkg/                    → Artefatos WASM commitados
 ```
 
 ### Stack
 
 | Camada | Tecnologia |
 |---|---|
-| Motor matemático | Rust 2021 (`statrs`, `serde`, `serde_json`) |
-| Compilação WASM | `wasm-bindgen` + `wasm-pack` |
-| Bridge JS↔WASM | `js-sys::Uint8ClampedArray` (zero-cópia) |
-| Frontend | Vanilla JS + ES Modules + Pico.css |
+| Motor matemático | Rust 2021 (`statrs`, `serde`, `serde_json`, `wasm-bindgen`, `js-sys`) |
+| CFD solver | Diferenças finitas + TDMA + SIMPLE com malha deslocada |
+| Compilação | `wasm-pack build --target web` |
+| Bridge JS↔WASM | ES Modules + `Uint8ClampedArray` (zero-cópia) |
+| Frontend | Vanilla JS + Canvas 2D + Pico.css |
 | Deploy | GitHub Actions → GitHub Pages |
 
 ---
@@ -71,35 +93,24 @@ pkg/                    → Artefatos WASM commitados (deploy direto no GitHub P
 ## 💻 Desenvolvimento local
 
 ```bash
-# 1. Clone
 git clone https://github.com/GustavoGarciaPereira/rusty-ttest-wasm.git
 cd rusty-ttest-wasm
-
-# 2. Compile Rust → WASM
 wasm-pack build --target web
-
-# 3. Sirva localmente (necessário para módulos ES)
 python -m http.server 8000
-
-# 4. Acesse http://localhost:8000
+# Acesse http://localhost:8000
 ```
 
 ### Testes
 
 ```bash
-cargo test
+cargo test   # 22 testes: t-test (13) + poiseuille (4) + couette (3) + backward_step (2)
 ```
 
-O core matemático é isolado do `#[wasm_bindgen]`, permitindo rodar a suíte de validação nativamente em x86.
+O core matemático é isolado do `#[wasm_bindgen]`, permitindo validação nativa em x86.
 
 ---
 
-## 🚀 Deploy (GitHub Pages)
+## 🚀 Deploy
 
-O deploy é automático via GitHub Actions — push na branch `main` dispara:
-
-1. Checkout do código + instalação do Rust e `wasm-pack`
-2. `wasm-pack build --target web`
-3. Upload da raiz (`index.html`, `ttest.html`, `campo-eletrico.html`, `pkg/`) para o GitHub Pages
-
-Os artefatos `pkg/` também são commitados para evitar problemas de cache/respeito a `.gitignore` pela action de upload.
+Push na `main` dispara GitHub Actions: `wasm-pack build` → upload da raiz → GitHub Pages.  
+Os artefatos `pkg/` são commitados para evitar problemas de cache/`.gitignore` na action de upload.

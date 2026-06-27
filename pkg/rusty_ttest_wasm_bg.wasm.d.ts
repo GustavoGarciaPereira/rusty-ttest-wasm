@@ -1,6 +1,10 @@
 /* tslint:disable */
 /* eslint-disable */
 export const memory: WebAssembly.Memory;
+export const compute_field_3d: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+export const generate_field_from_siesta: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+export const parse_siesta_out_full: (a: number, b: number) => [number, number];
+export const trace_field_lines: (a: number, b: number, c: number, d: number, e: number) => [number, number];
 export const __wbg_get_independentresult_df: (a: number) => number;
 export const __wbg_get_independentresult_mean_a: (a: number) => number;
 export const __wbg_get_independentresult_mean_b: (a: number) => number;

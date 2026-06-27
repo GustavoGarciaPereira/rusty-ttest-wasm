@@ -99,14 +99,25 @@ export function compute_couette(U: number, h: number, N: number): string;
 export function compute_electric_field(width: number, height: number, charges_json: string, k: number): Uint8ClampedArray;
 
 /**
+ * Compute the 3D electric field on a uniform grid. Returns a flat array:
+ * `[x0,y0,z0,Ex0,Ey0,Ez0,  x1,y1,z1,Ex1,Ey1,Ez1,  ...]`.
+ */
+export function compute_field_3d(charges_json: string, nx: number, ny: number, nz: number, k: number): Float64Array;
+
+/**
  * JS-facing entry-point: computes both the analytical and numerical
  * Poiseuille velocity profiles and returns them as a JSON string.
  */
 export function compute_poiseuille(R: number, mu: number, dpdx: number, N: number): string;
 
 /**
- * Compute the electric field produced by a set of point charges across a
- * `width × height` pixel grid and return a flat RGBA byte buffer.
+ * Parse a SIESTA `.out` file, transform atomic coordinates to pixel space,
+ * compute the electric field, and return a flat RGBA buffer.
+ */
+export function generate_field_from_siesta(out_content: string, width: number, height: number, scale: number, k: number): Uint8Array;
+
+/**
+ * Compute the electric field from a JSON string and return a flat RGBA buffer.
  *
  * * `charges_json` – JSON-serialised `Vec<Charge>`.
  * * `k` – Coulomb constant (or an artistic scaling factor).
@@ -123,6 +134,18 @@ export function interpolate_velocity(x: number, y: number, xs: Float64Array, ys:
 export function one_sample_t_test(data: string, mu: number): OneSampleResult;
 
 export function paired_t_test(before: string, after: string): PairedResult;
+
+/**
+ * Parse a SIESTA `.out` file and return a JSON array of `{x, y, z, q, sym}`.
+ */
+export function parse_siesta_out_full(content: string): string;
+
+/**
+ * Trace field lines from positive charges using RK4 integration.
+ * Returns a flat array of 3D points `[x0,y0,z0, x1,y1,z1, ...]`.
+ * Each line is terminated by a `[f64::NAN; 3]` sentinel.
+ */
+export function trace_field_lines(charges_json: string, step_size: number, max_steps: number, k: number): Float64Array;
 
 /**
  * Exact velocity at radial position `r` for a Poiseuille flow:
@@ -154,6 +177,10 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 export interface InitOutput {
     readonly memory: WebAssembly.Memory;
+    readonly compute_field_3d: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly generate_field_from_siesta: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
+    readonly parse_siesta_out_full: (a: number, b: number) => [number, number];
+    readonly trace_field_lines: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly __wbg_get_independentresult_df: (a: number) => number;
     readonly __wbg_get_independentresult_mean_a: (a: number) => number;
     readonly __wbg_get_independentresult_mean_b: (a: number) => number;

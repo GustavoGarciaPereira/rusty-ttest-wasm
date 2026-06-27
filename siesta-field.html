@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIESTA Field — rusty-ttest-wasm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    body { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    .hidden { display: none !important; }
+    .controls-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 0.75rem; }
+    .controls-row label { margin-bottom: 0; }
+    small.hint { color: var(--pico-muted-color); display: block; margin-top: -0.5rem; margin-bottom: 0.75rem; }
+    #vis-canvas { display: block; border-radius: var(--pico-border-radius); border: 1px solid var(--pico-muted-border-color); width: 100%; max-width: 700px; height: auto; }
+    #info-box { margin-top: 0.75rem; font-size: 0.9rem; color: var(--pico-muted-color); }
+    #info-box span { font-weight: 600; color: var(--pico-color); }
+  </style>
+</head>
+<body>
+  <header>
+    <p>
+      <a href="index.html">&larr; Voltar ao menu</a>
+      <button id="btn-theme-toggle" class="secondary" style="float:right; font-size:1.2rem;" title="Alternar tema claro/escuro">🌙</button>
+    </p>
+    <h1>🔬 Campo Elétrico a partir do SIESTA</h1>
+    <p>Carregue um arquivo <code>.out</code> do SIESTA e visualize o campo elétrico das cargas atômicas</p>
+  </header>
+  <main>
+    <article>
+      <label for="file-input">Arquivo SIESTA (<code>.out</code>)</label>
+      <input type="file" id="file-input" accept=".out,.txt" />
+      <small class="hint">O arquivo deve conter as seções <em>Atomic coordinates (Ang)</em> e <em>Mulliken populations</em></small>
+
+      <div class="controls-row">
+        <div>
+          <label for="k-slider">Constante <em>k</em></label>
+          <input type="range" id="k-slider" min="1" max="1000" value="100" style="width:8rem;" />
+          <output id="k-value">100</output>
+        </div>
+        <div>
+          <label for="scale-slider">Escala (Å→px)</label>
+          <input type="range" id="scale-slider" min="5" max="200" step="5" value="30" style="width:8rem;" />
+          <output id="scale-value">30</output>
+        </div>
+      </div>
+
+      <button id="btn-render">🔬 Renderizar Campo</button>
+
+      <canvas id="vis-canvas" width="700" height="500"></canvas>
+
+      <div id="info-box" class="hidden">
+        <p>Átomos: <span id="info-atoms">—</span> &nbsp;|&nbsp; Carga mín: <span id="info-qmin">—</span> &nbsp;|&nbsp; Carga máx: <span id="info-qmax">—</span> &nbsp; <span id="info-warn" style="color:var(--pico-color-orange-500);"></span></p>
+        <button id="btn-export-json" class="secondary outline" style="font-size:0.8rem;">Exportar coordenadas como JSON</button>
+      </div>
+    </article>
+
+    <div id="error-box" class="hidden">
+      <article style="border-color: var(--pico-color-red-500);"><strong>Erro:</strong> <span id="error-msg"></span></article>
+    </div>
+  </main>
+
+  <script type="module">
+    import init, { generate_field_from_siesta }
+      from './pkg/rusty_ttest_wasm.js';
+    await init();
+
+    // Theme toggle
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('btn-theme-toggle');
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') html.setAttribute('data-theme', saved);
+    themeBtn.textContent = html.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+    themeBtn.addEventListener('click', () => {
+      const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      themeBtn.textContent = next === 'light' ? '☀️' : '🌙';
+    });
+
+    // DOM
+    const fileInput = document.getElementById('file-input');
+    const kSlider = document.getElementById('k-slider'), kValue = document.getElementById('k-value');
+    const scaleSlider = document.getElementById('scale-slider'), scaleValue = document.getElementById('scale-value');
+    const renderBtn = document.getElementById('btn-render');
+    const canvas = document.getElementById('vis-canvas'), ctx = canvas.getContext('2d');
+    const infoBox = document.getElementById('info-box');
+    const infoAtoms = document.getElementById('info-atoms'), infoQmin = document.getElementById('info-qmin'), infoQmax = document.getElementById('info-qmax'), infoWarn = document.getElementById('info-warn');
+    const exportBtn = document.getElementById('btn-export-json');
+    const errorBox = document.getElementById('error-box'), errorMsg = document.getElementById('error-msg');
+
+    kSlider.addEventListener('input', () => kValue.textContent = kSlider.value);
+    scaleSlider.addEventListener('input', () => scaleValue.textContent = scaleSlider.value);
+
+    let fileContent = null;
+    let lastCharges = null; // parsed charges for overlay + export
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => { fileContent = e.target.result; };
+      reader.readAsText(file);
+    });
+
+    function showError(m) { errorMsg.textContent = m; errorBox.classList.remove('hidden'); }
+
+    function parseAtomInfo(content) {
+      // Quick client‑side parse just for the info box (Rust does the real work)
+      const atoms = [];
+      let inCoords = false;
+      for (const line of content.split('\n')) {
+        if (line.includes('siesta: Atomic coordinates (Ang):')) { inCoords = true; continue; }
+        if (inCoords) {
+          const t = line.trim();
+          if (!t || t.startsWith('siesta:')) break;
+          const parts = t.split(/\s+/);
+          if (parts.length >= 5) atoms.push({ sym: parts[1], x: +parts[2], y: +parts[3] });
+        }
+      }
+      return atoms;
+    }
+
+    renderBtn.addEventListener('click', () => {
+      try {
+        if (!fileContent) throw new Error('Selecione um arquivo .out primeiro.');
+        const k = parseFloat(kSlider.value);
+        const scale = parseFloat(scaleSlider.value);
+        const w = canvas.width, h = canvas.height;
+
+        const rgba = generate_field_from_siesta(fileContent, w, h, scale, k);
+        const img = new ImageData(new Uint8ClampedArray(rgba.buffer), w, h);
+        ctx.putImageData(img, 0, 0);
+
+        // Parse atom info client‑side for overlay + info box
+        const atoms = parseAtomInfo(fileContent);
+        infoBox.classList.remove('hidden');
+        infoAtoms.textContent = atoms.length;
+
+        // Compute bounding box for overlay
+        if (atoms.length) {
+          const xs = atoms.map(a => a.x), ys = atoms.map(a => a.y);
+          const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+          const rangeX = maxX - minX || 1, rangeY = maxY - minY || 1;
+          const rangeMax = Math.max(rangeX, rangeY);
+          const effScale = scale > 0 ? scale : (Math.min(w, h) * 0.8 / rangeMax);
+          const cx = w / 2, cy = h / 2;
+
+          // Draw atoms
+          for (const a of atoms) {
+            const px = (a.x - minX) * effScale + (cx - rangeX * effScale / 2);
+            const py = (maxY - a.y) * effScale + (cy - rangeY * effScale / 2);
+
+            // Determine charge colour from Mulliken info (simple heuristic)
+            let q = 0;
+            // Try to find Mulliken charge for this atom from Rust‑parsed data
+            // For simplicity, use symbol‑based colour: O → red, N → blue, etc.
+            const sym = a.sym;
+            const isNeg = sym === 'O' || sym === 'F' || sym === 'N' || sym === 'Cl' || sym === 'S';
+            const isPos = sym === 'H' || sym === 'Li' || sym === 'Na' || sym === 'K';
+
+            ctx.beginPath();
+            ctx.arc(px, py, 5, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffffff'; ctx.fill(); // white outline
+            ctx.beginPath();
+            ctx.arc(px, py, 4, 0, 2 * Math.PI);
+            ctx.fillStyle = isPos ? '#ff4136' : isNeg ? '#0074d9' : '#aaaaaa';
+            ctx.fill();
+
+            // Symbol label
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+            ctx.fillText(sym, px, py + 3);
+          }
+
+          // Charge range from Mulliken
+          const mullikenCharges = [];
+          let inMull = false;
+          for (const line of fileContent.split('\n')) {
+            if (line.includes('siesta: Mulliken populations:')) { inMull = true; continue; }
+            if (inMull) {
+              const t = line.trim(); if (!t || t.startsWith('siesta:')) break;
+              const idx = t.indexOf('Q =');
+              if (idx >= 0) mullikenCharges.push(parseFloat(t.slice(idx + 3)));
+            }
+          }
+
+          if (mullikenCharges.length === atoms.length) {
+            infoQmin.textContent = Math.min(...mullikenCharges).toFixed(3);
+            infoQmax.textContent = Math.max(...mullikenCharges).toFixed(3);
+            infoWarn.textContent = '';
+            lastCharges = atoms.map((a, i) => ({ ...a, q: mullikenCharges[i] }));
+          } else {
+            infoQmin.textContent = '—'; infoQmax.textContent = '—';
+            infoWarn.textContent = '(cargas Mulliken não encontradas)';
+            lastCharges = atoms.map(a => ({ ...a, q: 0 }));
+          }
+        }
+
+        errorBox.classList.add('hidden');
+      } catch (e) { showError(e?.message ?? String(e)); }
+    });
+
+    exportBtn.addEventListener('click', () => {
+      if (!lastCharges) return;
+      const json = JSON.stringify(lastCharges.map(c => ({ x: c.x, y: c.y, q: c.q, sym: c.sym })), null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href = url; a.download = 'siesta_charges.json'; a.click();
+      URL.revokeObjectURL(url);
+    });
+  </script>
+</body>
+</html>

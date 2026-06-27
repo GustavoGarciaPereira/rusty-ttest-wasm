@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SIESTA 3D — rusty-ttest-wasm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    body { max-width: 1100px; margin: 2rem auto; padding: 0 1rem; }
+    .hidden { display: none !important; }
+    .controls-row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 0.75rem; }
+    .controls-row label { margin-bottom: 0; }
+    small.hint { color: var(--pico-muted-color); display: block; margin-top: -0.5rem; margin-bottom: 0.75rem; }
+    #canvas3d { display: block; border-radius: var(--pico-border-radius); width: 100%; max-width: 100%; height: 700px; }
+    #info-box { margin-top: 0.75rem; font-size: 0.9rem; color: var(--pico-muted-color); }
+  </style>
+</head>
+<body>
+  <header>
+    <p>
+      <a href="index.html">&larr; Voltar ao menu</a>
+      <button id="btn-theme-toggle" class="secondary" style="float:right; font-size:1.2rem;">🌙</button>
+    </p>
+    <h1>⚛️ SIESTA Field — Visualização 3D</h1>
+    <p>Átomos como esferas · Vetores de campo 3D · Linhas de campo traçadas (Rust + WASM + Three.js)</p>
+  </header>
+  <main>
+    <article>
+      <label for="file-input">Arquivo SIESTA (<code>.out</code>)</label>
+      <input type="file" id="file-input" accept=".out,.txt" />
+      <small class="hint">Seções <em>Atomic coordinates (Ang)</em> e <em>Mulliken populations</em></small>
+
+      <div class="controls-row">
+        <div><label for="k-slider"><em>k</em></label><input type="range" id="k-slider" min="1" max="500" value="50" style="width:7rem;"><output id="k-value">50</output></div>
+        <div><label for="grid-slider">Grade 3D</label><input type="range" id="grid-slider" min="4" max="16" value="8" style="width:7rem;"><output id="grid-value">8</output><sup>3</sup></div>
+        <button id="btn-render" style="margin-left:0.5rem;">🔬 Renderizar 3D</button>
+        <button id="btn-lines" class="secondary" style="margin-left:0.5rem;">🌀 Traçar Linhas</button>
+        <button id="btn-zoom-in" class="secondary outline" style="margin-left:auto; font-size:1.3rem; padding:0.2rem 0.6rem;" title="Zoom +">➕</button>
+        <button id="btn-zoom-out" class="secondary outline" style="font-size:1.3rem; padding:0.2rem 0.6rem;" title="Zoom −">➖</button>
+      </div>
+
+      <div id="canvas3d"></div>
+      <div id="info-box" class="hidden"><span id="info-text"></span></div>
+    </article>
+    <div id="error-box" class="hidden"><article style="border-color:var(--pico-color-red-500);"><strong>Erro:</strong> <span id="error-msg"></span></article></div>
+  </main>
+
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
+  </script>
+  <script type="module">
+    import init, { parse_siesta_out_full, compute_field_3d, trace_field_lines } from './pkg/rusty_ttest_wasm.js';
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    await init();
+
+    // Theme
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('btn-theme-toggle');
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') html.setAttribute('data-theme', saved);
+    themeBtn.textContent = html.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+    themeBtn.addEventListener('click', () => { const n = html.getAttribute('data-theme')==='light'?'dark':'light'; html.setAttribute('data-theme',n); localStorage.setItem('theme',n); themeBtn.textContent = n==='light'?'☀️':'🌙'; });
+
+    const fileInput=document.getElementById('file-input'),kSlider=document.getElementById('k-slider'),gridSlider=document.getElementById('grid-slider');
+    const kValue=document.getElementById('k-value'),gridValue=document.getElementById('grid-value');
+    const renderBtn=document.getElementById('btn-render'),linesBtn=document.getElementById('btn-lines');
+    const zoomInBtn=document.getElementById('btn-zoom-in'),zoomOutBtn=document.getElementById('btn-zoom-out');
+    const container=document.getElementById('canvas3d'),infoBox=document.getElementById('info-box'),infoText=document.getElementById('info-text');
+    const errorBox=document.getElementById('error-box'),errorMsg=document.getElementById('error-msg');
+
+    kSlider.addEventListener('input',()=>kValue.textContent=kSlider.value);
+    gridSlider.addEventListener('input',()=>gridValue.textContent=gridSlider.value);
+
+    zoomInBtn.addEventListener('click',()=>{if(!controls)return;const d=camera.position.distanceTo(controls.target);const step=d*0.3;camera.position.lerp(controls.target,step/d);controls.update();});
+    zoomOutBtn.addEventListener('click',()=>{if(!controls)return;const d=camera.position.distanceTo(controls.target);const step=-d*0.3;camera.position.lerp(controls.target,-step/d);controls.update();});
+
+    let fileContent=null,atomData=null;
+    fileInput.addEventListener('change',()=>{const f=fileInput.files[0];if(!f)return;const r=new FileReader();r.onload=e=>fileContent=e.target.result;r.readAsText(f);});
+
+    function showError(m){errorMsg.textContent=m;errorBox.classList.remove('hidden');}
+
+    // Three.js setup
+    let scene,camera,renderer,controls;
+    function initScene(){
+      if(renderer){renderer.dispose();container.innerHTML='';}
+      const w=container.clientWidth||900,h=container.clientHeight||550;
+      scene=new THREE.Scene();
+      scene.background=new THREE.Color(html.getAttribute('data-theme')==='light'?0xf0f0f0:0x11191f);
+      camera=new THREE.PerspectiveCamera(45,w/h,0.1,200);
+      camera.position.set(15,10,20);
+      renderer=new THREE.WebGLRenderer({antialias:true});
+      renderer.setSize(w,h);renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+      container.appendChild(renderer.domElement);
+      controls=new OrbitControls(camera,renderer.domElement);
+      controls.enableDamping=true;controls.dampingFactor=0.1;
+      controls.zoomSpeed=1.8;controls.rotateSpeed=0.8;
+      controls.minDistance=2;controls.maxDistance=80;
+      controls.target.set(0,0,0);controls.update();
+      // Lights
+      scene.add(new THREE.AmbientLight(0x404040,1.5));
+      const dl=new THREE.DirectionalLight(0xffffff,2);dl.position.set(10,20,5);scene.add(dl);
+      const dl2=new THREE.DirectionalLight(0xffffff,1);dl2.position.set(-5,-10,-5);scene.add(dl2);
+      // Grid helper
+      scene.add(new THREE.GridHelper(20,20,0x444444,0x222222));
+      // Axes
+      scene.add(new THREE.AxesHelper(5));
+      function anim(){requestAnimationFrame(anim);controls.update();renderer.render(scene,camera);}
+      anim();
+    }
+    initScene();
+    window.addEventListener('resize',()=>{if(!renderer)return;const w=container.clientWidth,h=container.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);});
+
+    function atomColor(q){if(q>0.05)return 0xff4136;if(q<-0.05)return 0x0074d9;return 0xaaaaaa;}
+    function atomRadius(sym){const r={H:0.3,C:0.7,N:0.65,O:0.6,F:0.5,Cl:1.0,S:0.9,Na:1.1,K:1.4,Li:0.9}[sym]||0.7;return r;}
+
+    renderBtn.addEventListener('click',()=>{
+      try{
+        if(!fileContent)throw new Error('Selecione um arquivo .out');
+        const json=parse_siesta_out_full(fileContent);
+        atomData=JSON.parse(json);
+        if(!atomData.length)throw new Error('Nenhum átomo encontrado');
+
+        const k=parseFloat(kSlider.value);
+        const gs=parseInt(gridSlider.value);
+
+        // Clear scene (keep lights, grid, axes)
+        while(scene.children.length>6){scene.remove(scene.children[6]);}
+
+        // Add atoms
+        for(const a of atomData){
+          const geo=new THREE.SphereGeometry(atomRadius(a.sym),32,16);
+          const mat=new THREE.MeshStandardMaterial({color:atomColor(a.q),roughness:0.4,metalness:0.1});
+          const mesh=new THREE.Mesh(geo,mat);
+          mesh.position.set(a.x,a.y,a.z);
+          scene.add(mesh);
+        }
+
+        // Compute 3D field vectors
+        const chargesJson=JSON.stringify(atomData.map(a=>({x:a.x,y:a.y,q:a.q})));
+        const fieldData=compute_field_3d(chargesJson,gs,gs,gs,k);
+
+        // Draw field arrows
+        const arrowLen=0.8;
+        for(let i=0;i<fieldData.length;i+=6){
+          const x=fieldData[i],y=fieldData[i+1],z=fieldData[i+2],ex=fieldData[i+3],ey=fieldData[i+4],ez=fieldData[i+5];
+          const mag=Math.sqrt(ex*ex+ey*ey+ez*ez);
+          if(mag<0.001)continue;
+          const dir=new THREE.Vector3(ex,ey,ez).normalize();
+          const origin=new THREE.Vector3(x,y,z);
+          const color=mag>1?0xff0000:mag>0.3?0xff8800:0x4488ff;
+          const arrow=new THREE.ArrowHelper(dir,origin,arrowLen,color,0.2,0.15);
+          scene.add(arrow);
+        }
+
+        infoBox.classList.remove('hidden');
+        infoText.textContent=`${atomData.length} átomos · grade ${gs}³ · ${fieldData.length/6} vetores`;
+        errorBox.classList.add('hidden');
+      }catch(e){showError(e?.message??String(e));}
+    });
+
+    linesBtn.addEventListener('click',()=>{
+      try{
+        if(!atomData)throw new Error('Renderize os átomos primeiro');
+        const k=parseFloat(kSlider.value);
+        const chargesJson=JSON.stringify(atomData.map(a=>({x:a.x,y:a.y,q:a.q})));
+        const lineData=trace_field_lines(chargesJson,0.25,300,k);
+
+        // Parse lines (separated by NaN sentinels)
+        const lines=[];
+        let cur=[];
+        for(let i=0;i<lineData.length;i+=3){
+          const x=lineData[i],y=lineData[i+1],z=lineData[i+2];
+          if(isNaN(x)){if(cur.length>1)lines.push(cur);cur=[];continue;}
+          cur.push(new THREE.Vector3(x,y,z));
+        }
+        if(cur.length>1)lines.push(cur);
+
+        // Remove old lines
+        const toRemove=[];
+        scene.children.forEach(c=>{if(c.userData&&c.userData.fieldLine)toRemove.push(c);});
+        toRemove.forEach(c=>scene.remove(c));
+
+        for(const pts of lines){
+          const geo=new THREE.BufferGeometry().setFromPoints(pts);
+          const mat=new THREE.LineBasicMaterial({color:0x00ff88,linewidth:1,transparent:true,opacity:0.7});
+          const line=new THREE.Line(geo,mat);
+          line.userData={fieldLine:true};
+          scene.add(line);
+        }
+        infoText.textContent+=` · ${lines.length} linhas de campo`;
+        errorBox.classList.add('hidden');
+      }catch(e){showError(e?.message??String(e));}
+    });
+  </script>
+</body>
+</html>

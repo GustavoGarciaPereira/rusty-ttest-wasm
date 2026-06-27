@@ -10,7 +10,7 @@
     header { text-align: center; margin-bottom: 2.5rem; }
     .menu-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 1.5rem;
     }
     .menu-card {
@@ -73,8 +73,8 @@
       </article>
 
       <article class="menu-card">
-        <span class="icon">🔬</span>
-        <h3>Degrau Retangular</h3>
+        <span class="icon">🌀</span>
+        <h3>Degrau Retangular (Visual)</h3>
         <p>Solver SIMPLE 2D para escoamento com degrau + partículas traçadoras (backward-facing step).</p>
         <a role="button" href="backward-step-visual.html">Abrir Ferramenta</a>
       </article>
@@ -84,6 +84,20 @@
         <h3>Degrau — Perfis</h3>
         <p>Perfis de velocidade u(y) em estações x e queda de pressão p(x) para validação do solver.</p>
         <a role="button" href="backward-step.html">Abrir Ferramenta</a>
+      </article>
+
+      <article class="menu-card">
+        <span class="icon">⚛️</span>
+        <h3>SIESTA Field</h3>
+        <p>Carregue um arquivo <code>.out</code> do SIESTA e visualize o campo elétrico das cargas atômicas.</p>
+        <a role="button" href="siesta-field.html">Abrir Ferramenta</a>
+      </article>
+
+      <article class="menu-card">
+        <span class="icon">🧬</span>
+        <h3>SIESTA 3D</h3>
+        <p>Visualização 3D com Three.js: átomos, vetores de campo e linhas de campo traçadas via Rust.</p>
+        <a role="button" href="siesta-field-3d.html">Abrir Ferramenta</a>
       </article>
     </div>
   </main>

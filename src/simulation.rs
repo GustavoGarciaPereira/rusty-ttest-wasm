@@ -40,21 +40,14 @@ fn hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
 
 const SOFTENING: f64 = 0.1;
 
-/// Compute the electric field produced by a set of point charges across a
-/// `width × height` pixel grid and return a flat RGBA byte buffer.
-///
-/// * `charges_json` – JSON-serialised `Vec<Charge>`.
-/// * `k` – Coulomb constant (or an artistic scaling factor).
-#[wasm_bindgen]
-pub fn generate_field_image(
+/// Core field solver: compute the electric field for a set of charges and
+/// return a flat RGBA buffer.  This is the reusable, non‑WASM function.
+pub fn compute_field_data(
     width: usize,
     height: usize,
-    charges_json: &str,
+    charges: &[Charge],
     k: f64,
 ) -> Vec<u8> {
-    let charges: Vec<Charge> =
-        serde_json::from_str(charges_json).expect("Invalid charges JSON");
-
     let mut pixels: Vec<u8> = vec![0u8; width * height * 4];
 
     for y in 0..height {
@@ -62,7 +55,7 @@ pub fn generate_field_image(
             let mut ex_total = 0.0_f64;
             let mut ey_total = 0.0_f64;
 
-            for charge in &charges {
+            for charge in charges {
                 let dx = x as f64 - charge.x;
                 let dy = y as f64 - charge.y;
                 let r = (dx * dx + dy * dy).sqrt().max(SOFTENING);
@@ -71,15 +64,13 @@ pub fn generate_field_image(
                 ey_total += intensity * (dy / r);
             }
 
-            // Direction → hue (0–360°)
             let angle = ey_total.atan2(ex_total).to_degrees();
             let hue = angle.rem_euclid(360.0);
 
-            // Magnitude → brightness (sqrt curve lifts dim regions)
             let magnitude = (ex_total * ex_total + ey_total * ey_total)
                 .sqrt()
                 .clamp(0.0, 1.0);
-            let brightness = magnitude.sqrt(); // gamma-like lift; √0=0 (black), √1=1
+            let brightness = magnitude.sqrt();
 
             let (r, g, b) = hsv_to_rgb(hue, 1.0, brightness);
 
@@ -92,6 +83,22 @@ pub fn generate_field_image(
     }
 
     pixels
+}
+
+/// Compute the electric field from a JSON string and return a flat RGBA buffer.
+///
+/// * `charges_json` – JSON-serialised `Vec<Charge>`.
+/// * `k` – Coulomb constant (or an artistic scaling factor).
+#[wasm_bindgen]
+pub fn generate_field_image(
+    width: usize,
+    height: usize,
+    charges_json: &str,
+    k: f64,
+) -> Vec<u8> {
+    let charges: Vec<Charge> =
+        serde_json::from_str(charges_json).expect("Invalid charges JSON");
+    compute_field_data(width, height, &charges, k)
 }
 
 // ─── WASM bridge (JS → Rust → JS) ────────────────────────────────────────────

@@ -4,6 +4,7 @@ use serde::{Serialize, Deserialize};
 /// Parameters for a Poiseuille (laminar pipe) flow.
 #[wasm_bindgen]
 #[derive(Clone, Copy, Serialize, Deserialize)]
+#[allow(non_snake_case)]
 pub struct PoiseuilleParams {
     /// Pipe radius.
     pub R: f64,
@@ -37,6 +38,7 @@ pub fn velocity_analytical(r: f64, R: f64, dpdx: f64, mu: f64) -> f64 {
 /// radial positions from `r = 0` (centre) to `r = R` (wall).
 ///
 /// Returns a tuple `(r_values, u_values)`.
+#[allow(non_snake_case)]
 pub fn generate_poiseuille_profile(
     R: f64,
     mu: f64,

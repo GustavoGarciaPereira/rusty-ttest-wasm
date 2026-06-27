@@ -5,6 +5,7 @@ pub mod simulation;
 pub mod poiseuille;
 pub mod couette;
 pub mod backward_step;
+pub mod siesta_field;
 
 // ─── Utility functions ────────────────────────────────────────────────────────
 
