@@ -6,11 +6,14 @@ export const generate_field_from_siesta: (a: number, b: number, c: number, d: nu
 export const parse_siesta_out_full: (a: number, b: number) => [number, number];
 export const trace_field_lines: (a: number, b: number, c: number, d: number, e: number) => [number, number];
 export const __wbg_firesmoke_free: (a: number, b: number) => void;
+export const firesmoke_apply_force: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+export const firesmoke_fire_intensity: (a: number) => number;
 export const firesmoke_new: (a: number, b: number) => [number, number, number];
 export const firesmoke_nx: (a: number) => number;
 export const firesmoke_ny: (a: number) => number;
 export const firesmoke_render: (a: number) => any;
 export const firesmoke_reset: (a: number) => void;
+export const firesmoke_set_fire_intensity: (a: number, b: number) => [number, number];
 export const firesmoke_set_temp_amb: (a: number, b: number) => void;
 export const firesmoke_smoke: (a: number) => [number, number];
 export const firesmoke_step: (a: number, b: number) => [number, number];

@@ -33,8 +33,9 @@
       border-radius: var(--pico-border-radius);
       border: 1px solid var(--pico-muted-border-color);
       width: 100%; max-width: 700px; height: auto;
-      image-rendering: pixelated;
       background: #0f0f1c;
+      cursor: crosshair;
+      touch-action: none;
     }
 
     .colorbar {
@@ -78,12 +79,26 @@
           <input type="range" id="amb-slider" min="5" max="35" step="0.5" value="20" />
           <div class="value-display"><span id="amb-value">20</span> °C</div>
         </div>
+        <div>
+          <label for="intensity-slider">Intensidade do fogo</label>
+          <input type="range" id="intensity-slider" min="0" max="5" step="0.1" value="1" />
+          <div class="value-display"><span id="intensity-value">1.0</span>×</div>
+        </div>
       </div>
 
       <div class="controls-row">
         <button id="btn-pause">⏸ Pausar</button>
         <button id="btn-reset" class="secondary">↺ Reiniciar</button>
-        <small class="hint" style="margin:0;">O fogo acende automaticamente na base central — o ar quente sobe e a fumaça escapa pelo topo</small>
+        <button id="btn-burst" class="secondary">💨 Rajada</button>
+        <button id="btn-fire" class="secondary">🔥 On</button>
+        <label style="margin-left:auto;">Resolução
+          <select id="res-select">
+            <option value="60x40">60 × 40</option>
+            <option value="80x50" selected>80 × 50</option>
+            <option value="120x75">120 × 75</option>
+          </select>
+        </label>
+        <small class="hint" style="margin:0;">🖱️ Clique e arraste sobre o canvas para soprar a fumaça</small>
       </div>
 
       <canvas id="fire-canvas" width="80" height="50"></canvas>
@@ -142,10 +157,15 @@
     // ── DOM refs ──────────────────────────────────────────────────────────────
     const speedSlider = document.getElementById('speed-slider');
     const ambSlider   = document.getElementById('amb-slider');
+    const intSlider   = document.getElementById('intensity-slider');
     const speedValue  = document.getElementById('speed-value');
     const ambValue    = document.getElementById('amb-value');
+    const intValue    = document.getElementById('intensity-value');
     const pauseBtn    = document.getElementById('btn-pause');
     const resetBtn    = document.getElementById('btn-reset');
+    const burstBtn    = document.getElementById('btn-burst');
+    const fireBtn     = document.getElementById('btn-fire');
+    const resSelect   = document.getElementById('res-select');
     const canvas      = document.getElementById('fire-canvas');
     const ctx         = canvas.getContext('2d');
     const errorBox    = document.getElementById('error-box');
@@ -156,6 +176,8 @@
 
     // ── Parameters ────────────────────────────────────────────────────────────
     let speedScale = parseFloat(speedSlider.value);
+    let fireIntensity = parseFloat(intSlider.value);
+    let fireOn = true;
     let simTime = 0;
     let running = true;
 
@@ -167,11 +189,18 @@
       ambValue.textContent = ambSlider.value;
       if (sim) sim.set_temp_amb(parseFloat(ambSlider.value));
     });
+    intSlider.addEventListener('input', () => {
+      intValue.textContent = intSlider.value;
+      fireIntensity = parseFloat(intSlider.value);
+      if (sim && fireOn) sim.set_fire_intensity(fireIntensity);
+    });
 
     // ── Simulation ────────────────────────────────────────────────────────────
     let sim = null;
-    const NX = 80, NY = 50;
+    let NX = 80, NY = 50;
     const BASE_DT = 1 / 60; // seconds of physics per frame at 1×
+    const WIND = 0.3;       // mouse wind strength
+    const BURST_POWER = 0.9; // vertical impulse of the burst button
 
     // ES modules (e o fetch do .wasm) são bloqueados por CORS em file://
     if (location.protocol !== 'http:' && location.protocol !== 'https:') {
@@ -183,6 +212,7 @@
       try {
         sim = FireSmoke.new(NX, NY);
         sim.set_temp_amb(parseFloat(ambSlider.value));
+        sim.set_fire_intensity(fireOn ? fireIntensity : 0);
       } catch (e) {
         showError(e?.message ?? String(e));
         sim = null;
@@ -193,13 +223,22 @@
       if (sim) {
         sim.reset();
         sim.set_temp_amb(parseFloat(ambSlider.value));
+        sim.set_fire_intensity(fireOn ? fireIntensity : 0);
       }
       simTime = 0;
+      particles.length = 0;
     }
 
     // ── Animation loop ────────────────────────────────────────────────────────
     let lastTime = null;
     let fpsAccum = 0, fpsFrames = 0, fpsLast = 0;
+
+    // Mouse wind: while pressed, blow in the drag direction at windPos
+    let mouseActive = false;
+    let lastMouse = null;
+    let wind = { x: 0, y: -1 };      // normalized drag direction (physical y up)
+    let windPos = { x: 0.5, y: 0.2 };// normalized physical position
+    let burstT = 0;                  // seconds of burst remaining
 
     function animate(timestamp) {
       if (!running) { lastTime = null; requestAnimationFrame(animate); return; }
@@ -212,6 +251,12 @@
 
       if (sim) {
         try {
+          // External forces before the physics step
+          if (mouseActive) sim.apply_force(windPos.x, windPos.y, wind.x * WIND, wind.y * WIND);
+          if (burstT > 0) {
+            sim.apply_force(0.5, 0.12, 0.0, BURST_POWER); // upward impulse at the fire base
+            burstT -= dt;
+          }
           sim.step(dt * speedScale);
         } catch (e) {
           showError(e?.message ?? String(e));
@@ -221,6 +266,14 @@
         }
         simTime += dt * speedScale;
         ctx.putImageData(new ImageData(sim.render(), NX, NY), 0, 0);
+
+        // Particles follow the local velocity field (bilinear interpolation)
+        const uArr = sim.velocity_u();
+        const vArr = sim.velocity_v();
+        spawnParticles(dt);
+        updateParticles(dt, uArr, vArr);
+        drawParticles();
+        drawWindCursor();
 
         // Status updates (throttled to ~4 Hz)
         fpsAccum += dt; fpsFrames++;
@@ -241,12 +294,156 @@
       requestAnimationFrame(animate);
     }
 
+    // ── Mouse wind ────────────────────────────────────────────────────────────
+    function updateWind(e) {
+      const rect = canvas.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
+      if (!(x >= 0 && x <= 1 && y >= 0 && y <= 1)) return;
+      windPos.x = x;
+      windPos.y = 1 - y; // flip: canvas y grows down, physical y grows up
+      if (mouseActive && lastMouse) {
+        const dx = e.clientX - lastMouse.x;
+        const dy = e.clientY - lastMouse.y;
+        const mag = Math.hypot(dx, dy);
+        if (mag > 2) { wind.x = dx / mag; wind.y = -dy / mag; }
+      }
+      lastMouse = { x: e.clientX, y: e.clientY };
+    }
+    canvas.addEventListener('pointerdown', (e) => {
+      mouseActive = true;
+      lastMouse = null;
+      canvas.setPointerCapture(e.pointerId);
+      updateWind(e);
+    });
+    canvas.addEventListener('pointermove', updateWind);
+    canvas.addEventListener('pointerup',    () => { mouseActive = false; lastMouse = null; });
+    canvas.addEventListener('pointercancel',() => { mouseActive = false; lastMouse = null; });
+
+    function drawWindCursor() {
+      if (!mouseActive) return;
+      const x = windPos.x * NX;
+      const y = (1 - windPos.y) * NY; // canvas coords
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(x, y, 5, 0, 2 * Math.PI);
+      ctx.stroke();
+      const len = 9;
+      ctx.beginPath();
+      ctx.moveTo(x - wind.x * len, y + wind.y * len);
+      ctx.lineTo(x + wind.x * len, y - wind.y * len);
+      ctx.stroke();
+    }
+
+    // ── Sparks & smoke particles (canvas-space coordinates 0..NX × 0..NY) ────
+    const MAX_PARTICLES = 250;
+    const PARTICLE_RATE = 45; // spawns per second
+    const PARTICLE_SPEED = 0.4; // visual damping: particles don't track the field 1:1
+    let particleAccum = 0;
+    let particles = [];
+
+    function spawnParticles(dt) {
+      particleAccum += dt * PARTICLE_RATE;
+      while (particleAccum >= 1 && particles.length < MAX_PARTICLES) {
+        particleAccum -= 1;
+        const life = 2.5 + Math.random() * 1.5;
+        particles.push({
+          x: NX * 0.5 + (Math.random() - 0.5) * NX * 0.12, // fire base, centre
+          y: NY - 3 + Math.random() * 2,
+          life,
+          maxLife: life,
+          size: 1.2 + Math.random() * 1.2,
+        });
+      }
+    }
+
+    function updateParticles(dt, uArr, vArr) {
+      for (let k = particles.length - 1; k >= 0; k--) {
+        const p = particles[k];
+        p.life -= dt;
+        if (p.life <= 0 || p.x < -5 || p.x > NX + 5 || p.y < -5 || p.y > NY + 5) {
+          particles.splice(k, 1);
+          continue;
+        }
+        const [vx, vy] = velocityAt(p.x, p.y, uArr, vArr);
+        p.x += vx * dt * PARTICLE_SPEED;
+        p.y += vy * dt * PARTICLE_SPEED;
+      }
+    }
+
+    // Bilinear interpolation of the staggered fields at canvas point (px, py).
+    // Returns velocity in canvas pixels/second (flipped: physical up = -py).
+    function velocityAt(px, py, uArr, vArr) {
+      const xf = Math.max(0, Math.min(NX - 1.001, px));
+      const yf = Math.max(0, Math.min(NY - 1.001, py));
+      const i0 = Math.floor(xf);
+      const j0p = Math.floor(yf);
+      const fx = xf - i0;
+      const fy = yf - j0p;
+      const j0 = NY - 1 - j0p;      // physical cell row
+      const i1 = Math.min(i0 + 1, NX - 1);
+      const j1 = Math.min(j0 + 1, NY - 1);
+      const uC = (j, i) => 0.5 * (uArr[j * (NX + 1) + i] + uArr[j * (NX + 1) + i + 1]);
+      const vC = (j, i) => 0.5 * (vArr[j * NX + i] + vArr[(j + 1) * NX + i]);
+      const uTop = uC(j0, i0) + (uC(j0, i1) - uC(j0, i0)) * fx;
+      const uBot = uC(j1, i0) + (uC(j1, i1) - uC(j1, i0)) * fx;
+      const vTop = vC(j0, i0) + (vC(j0, i1) - vC(j0, i0)) * fx;
+      const vBot = vC(j1, i0) + (vC(j1, i1) - vC(j1, i0)) * fx;
+      const u = uTop + (uBot - uTop) * fy;
+      const v = vTop + (vBot - vTop) * fy;
+      return [u * NX, -v * NY];
+    }
+
+    function drawParticles() {
+      for (const p of particles) {
+        const t = p.life / p.maxLife; // 1 = born, 0 = dead
+        let r, g, b, a;
+        if (t > 0.6) {          // spark: red → orange
+          r = 255;
+          g = Math.round(80 + 140 * (t - 0.6) / 0.4);
+          b = 10;
+          a = 0.9;
+        } else if (t > 0.3) {   // ember: yellow
+          r = 255; g = 220;
+          b = Math.round(60 * (t - 0.3) / 0.3);
+          a = 0.75;
+        } else {                // smoke: grey, fading
+          r = g = b = Math.round(70 + 30 * (1 - t / 0.3));
+          a = 0.45 * (t / 0.3);
+        }
+        ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.fillStyle = `rgba(${r},${g},${b},${a * 0.25})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 2.6, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    }
+
     // ── Buttons ───────────────────────────────────────────────────────────────
     pauseBtn.addEventListener('click', () => {
       running = !running;
       pauseBtn.textContent = running ? '⏸ Pausar' : '▶ Retomar';
     });
     resetBtn.addEventListener('click', resetSim);
+    burstBtn.addEventListener('click', () => { burstT = 0.5; });
+    fireBtn.addEventListener('click', () => {
+      fireOn = !fireOn;
+      fireBtn.textContent = fireOn ? '🔥 On' : '🔥 Off';
+      if (sim) sim.set_fire_intensity(fireOn ? fireIntensity : 0);
+    });
+    resSelect.addEventListener('change', () => {
+      const [w, h] = resSelect.value.split('x').map(Number);
+      NX = w; NY = h;
+      canvas.width = NX;
+      canvas.height = NY;
+      particles.length = 0;
+      createSim();
+      resetSim();
+    });
 
     // ── Error handler ─────────────────────────────────────────────────────────
     function showError(msg) {

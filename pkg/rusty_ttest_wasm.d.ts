@@ -21,6 +21,14 @@ export class FireSmoke {
     free(): void;
     [Symbol.dispose](): void;
     /**
+     * Apply a Gaussian velocity perturbation (e.g. wind from the mouse) at a
+     * normalized physical point (x, y) ∈ [0,1]², with y = 0 at the floor.
+     * `fx` pushes right, `fy` pushes up. The projection step keeps the
+     * perturbation incompressible, so dragging the mouse creates vortices.
+     */
+    apply_force(x: number, y: number, fx: number, fy: number): void;
+    fire_intensity(): number;
+    /**
      * Create a new simulation on an `nx × ny` grid (domain is unit-sized).
      */
     static new(nx: number, ny: number): FireSmoke;
@@ -35,6 +43,10 @@ export class FireSmoke {
      * Reset all fields (velocities, pressure, smoke; temperature back to ambient).
      */
     reset(): void;
+    /**
+     * Scale the fire source: 0 disables it, 1 is the default, up to 10.
+     */
+    set_fire_intensity(factor: number): void;
     set_temp_amb(t: number): void;
     smoke(): Float32Array;
     /**
@@ -229,11 +241,14 @@ export interface InitOutput {
     readonly parse_siesta_out_full: (a: number, b: number) => [number, number];
     readonly trace_field_lines: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly __wbg_firesmoke_free: (a: number, b: number) => void;
+    readonly firesmoke_apply_force: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly firesmoke_fire_intensity: (a: number) => number;
     readonly firesmoke_new: (a: number, b: number) => [number, number, number];
     readonly firesmoke_nx: (a: number) => number;
     readonly firesmoke_ny: (a: number) => number;
     readonly firesmoke_render: (a: number) => any;
     readonly firesmoke_reset: (a: number) => void;
+    readonly firesmoke_set_fire_intensity: (a: number, b: number) => [number, number];
     readonly firesmoke_set_temp_amb: (a: number, b: number) => void;
     readonly firesmoke_smoke: (a: number) => [number, number];
     readonly firesmoke_step: (a: number, b: number) => [number, number];

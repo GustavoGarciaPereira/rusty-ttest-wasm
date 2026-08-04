@@ -32,6 +32,7 @@ const FIRE_J_START: usize = 1; // fire region: j in [1, 5)
 const FIRE_J_END: usize = 5;
 
 const POISSON_ITERS: usize = 20; // Gauss-Seidel sweeps per projection
+const FORCE_SIGMA: f32 = 0.06;   // Gaussian radius of the mouse wind (fraction of domain)
 const MAX_GRID: usize = 256;     // per-dimension guard (WASM memory)
 const MIN_GRID: usize = 8;
 const MAX_SUBSTEPS: usize = 512; // stability cap for very large dt
@@ -63,6 +64,7 @@ pub struct FireSmoke {
     // Parameters
     dt: f32,
     temp_amb: f32,
+    fire_intensity: f32, // multiplicative factor on the fire source
 }
 
 #[wasm_bindgen]
@@ -86,6 +88,7 @@ impl FireSmoke {
             smoke: vec![0.0; nx * ny],
             dt: DEFAULT_DT,
             temp_amb,
+            fire_intensity: 1.0,
         })
     }
 
@@ -103,6 +106,79 @@ impl FireSmoke {
 
     pub fn set_temp_amb(&mut self, t: f32) {
         self.temp_amb = t;
+    }
+
+    /// Scale the fire source: 0 disables it, 1 is the default, up to 10.
+    pub fn set_fire_intensity(&mut self, factor: f32) -> Result<(), String> {
+        if !factor.is_finite() || !(0.0..=10.0).contains(&factor) {
+            return Err("fire intensity must be in [0, 10]".to_string());
+        }
+        self.fire_intensity = factor;
+        Ok(())
+    }
+
+    pub fn fire_intensity(&self) -> f32 {
+        self.fire_intensity
+    }
+
+    /// Apply a Gaussian velocity perturbation (e.g. wind from the mouse) at a
+    /// normalized physical point (x, y) ∈ [0,1]², with y = 0 at the floor.
+    /// `fx` pushes right, `fy` pushes up. The projection step keeps the
+    /// perturbation incompressible, so dragging the mouse creates vortices.
+    pub fn apply_force(&mut self, x: f32, y: f32, fx: f32, fy: f32) -> Result<(), String> {
+        if !x.is_finite() || !y.is_finite() || !fx.is_finite() || !fy.is_finite() {
+            return Err("apply_force: coordinates and forces must be finite".to_string());
+        }
+        if !(0.0..=1.0).contains(&x) || !(0.0..=1.0).contains(&y) {
+            return Err("apply_force: x and y must be in [0, 1]".to_string());
+        }
+        let nx = self.nx;
+        let ny = self.ny;
+        let nxp1 = nx + 1;
+        let dx = self.dx;
+        let dy = self.dy;
+        let sigma = FORCE_SIGMA;
+        let inv_2s2 = 1.0 / (2.0 * sigma * sigma);
+        let cutoff = 3.0 * sigma;
+
+        // u-nodes (east faces, (nx+1) × ny): x = i·dx, y = (j + 0.5)·dy
+        let i_start = (((x - cutoff) / dx).floor().max(0.0) as usize).min(nx);
+        let i_end = (((x + cutoff) / dx).ceil() as usize).min(nx);
+        for j in 0..ny {
+            let y_u = (j as f32 + 0.5) * dy;
+            let dy2 = (y_u - y) * (y_u - y);
+            if dy2 > cutoff * cutoff {
+                continue;
+            }
+            for i in i_start..=i_end {
+                let x_u = i as f32 * dx;
+                let d2 = (x_u - x) * (x_u - x) + dy2;
+                if d2 <= cutoff * cutoff {
+                    let w = (-d2 * inv_2s2).exp();
+                    self.u[j * nxp1 + i] += fx * w;
+                }
+            }
+        }
+
+        // v-nodes (north faces, nx × (ny+1)): x = (i + 0.5)·dx, y = j·dy
+        let i_start = (((x - cutoff) / dx).floor().max(0.0) as usize).min(nx - 1);
+        let i_end = (((x + cutoff) / dx).ceil() as usize).min(nx);
+        for j in 0..=ny {
+            let y_v = j as f32 * dy;
+            let dy2 = (y_v - y) * (y_v - y);
+            if dy2 > cutoff * cutoff {
+                continue;
+            }
+            for i in i_start..i_end {
+                let x_v = (i as f32 + 0.5) * dx;
+                let d2 = (x_v - x) * (x_v - x) + dy2;
+                if d2 <= cutoff * cutoff {
+                    let w = (-d2 * inv_2s2).exp();
+                    self.v[j * nx + i] += fy * w;
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Advance the simulation by `dt` seconds (Chorin projection).
@@ -378,8 +454,8 @@ impl FireSmoke {
         let nx = self.nx;
         let i0 = (nx as f32 * FIRE_LEFT) as usize;
         let i1 = (nx as f32 * FIRE_RIGHT) as usize;
-        let heat = dt * FIRE_HEAT;
-        let soot = dt * FIRE_SMOKE;
+        let heat = dt * FIRE_HEAT * self.fire_intensity;
+        let soot = dt * FIRE_SMOKE * self.fire_intensity;
         for j in FIRE_J_START..FIRE_J_END.min(self.ny) {
             for i in i0..i1.min(nx) {
                 let idx = j * nx + i;
@@ -718,8 +794,7 @@ mod tests {
     /// Regression: the render must be vertically flipped so the physical floor
     /// (j=0, where the fire sits) appears at the BOTTOM of the image.
     #[test]
-    fn test_render_orientation_floor_at_bottom() {
-        let mut sim = FireSmoke::new(40, 30).unwrap();
+    fn test_render_orientation_floor_at_bottom() {        let mut sim = FireSmoke::new(40, 30).unwrap();
         // Heat a cell on the floor (j=0) and one at the top (j=ny-1)
         sim.temp[0 * sim.nx + 1] = sim.temp_amb + 100.0; // floor
         sim.temp[(sim.ny - 1) * sim.nx + 2] = sim.temp_amb + 100.0; // ceiling
@@ -750,5 +825,72 @@ mod tests {
             "ceiling cell must NOT appear at image bottom, got r={}",
             data[bottom_c]
         );
+    }
+
+    /// The Gaussian force must perturb u/v near the point and leave distant
+    /// nodes untouched, and reject invalid inputs.
+    #[test]
+    fn test_apply_force_local_and_bounded() {
+        let mut sim = FireSmoke::new(40, 30).unwrap();
+        sim.apply_force(0.5, 0.2, 1.0, -0.5).unwrap();
+        let nxp1 = 41;
+        // u-node at (i=20 → x=0.5, j=5 → y≈0.183) is ~0.017 from the point
+        assert!(
+            sim.u[5 * nxp1 + 20].abs() > 0.5,
+            "u near the force point should be strong, got {}",
+            sim.u[5 * nxp1 + 20]
+        );
+        // v-node at (i=20 → x≈0.5125, j=6 → y=0.2)
+        assert!(
+            sim.v[6 * 40 + 20].abs() > 0.3,
+            "v near the force point should be strong, got {}",
+            sim.v[6 * 40 + 20]
+        );
+        // Far corner (x=0, y≈0.017) must be untouched
+        assert!(sim.u[0].abs() < 1e-3, "far corner should stay 0, got {}", sim.u[0]);
+        assert!(sim.v[0].abs() < 1e-3, "far corner should stay 0, got {}", sim.v[0]);
+        // Invalid inputs
+        assert!(sim.apply_force(f32::NAN, 0.5, 1.0, 1.0).is_err());
+        assert!(sim.apply_force(1.5, 0.5, 1.0, 1.0).is_err());
+        assert!(sim.apply_force(0.5, 0.5, f32::INFINITY, 1.0).is_err());
+    }
+
+    /// fire_intensity must scale the source: 0 disables the fire entirely,
+    /// values above 1 heat more. Invalid values are rejected.
+    #[test]
+    fn test_fire_intensity_controls_source() {
+        let mut off = FireSmoke::new(40, 30).unwrap();
+        off.set_fire_intensity(0.0).unwrap();
+        for _ in 0..10 {
+            off.step(1.0 / 60.0).unwrap();
+        }
+        let mut hot = 0usize;
+        for j in FIRE_J_START..FIRE_J_END {
+            for i in 0..off.nx {
+                if off.temp[j * off.nx + i] > off.temp_amb + 1.0 {
+                    hot += 1;
+                }
+            }
+        }
+        assert_eq!(hot, 0, "intensity 0 must not heat the fire region");
+
+        let mut on = FireSmoke::new(40, 30).unwrap();
+        on.set_fire_intensity(2.0).unwrap();
+        assert_eq!(on.fire_intensity(), 2.0);
+        for _ in 0..10 {
+            on.step(1.0 / 60.0).unwrap();
+        }
+        let mut t_on = 0.0_f32;
+        let mut t_off = 0.0_f32;
+        for j in FIRE_J_START..FIRE_J_END {
+            for i in 0..on.nx {
+                t_on += on.temp[j * on.nx + i];
+                t_off += off.temp[j * off.nx + i];
+            }
+        }
+        assert!(t_on > t_off, "intensity 2 must heat more than intensity 0");
+        assert!(on.set_fire_intensity(99.0).is_err());
+        assert!(on.set_fire_intensity(-1.0).is_err());
+        assert!(on.set_fire_intensity(f32::NAN).is_err());
     }
 }

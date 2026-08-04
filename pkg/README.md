@@ -6,7 +6,7 @@ Suite de ferramentas científicas de alta performance rodando no navegador via *
 ![WebAssembly](https://img.shields.io/badge/Target-Wasm32-yellow)
 ![UI](https://img.shields.io/badge/UI-Pico.css-blue)
 ![Deploy](https://img.shields.io/badge/Deploy-GitHub_Pages-green)
-![Tests](https://img.shields.io/badge/Tests-28%2F28-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-30%2F30-brightgreen)
 
 🌐 **[Acessar aplicação](https://gustavogarciapereira.github.io/rusty-ttest-wasm/)**
 
@@ -61,6 +61,9 @@ Suite de ferramentas científicas de alta performance rodando no navegador via *
 - Fonte de fogo na base central, resfriamento de Newton, traçador passivo de fumaça
 - Sub-stepping automático (CFL + difusão explícita) — estável para qualquer dt
 - Render `Uint8ClampedArray` direto no Canvas, paleta fogo + escurecimento por fuligem
+- 🖱️ **Mouse interativo**: clique e arraste para soprar vento (perturbação Gaussiana em u/v — cria vórtices)
+- ✨ **Faíscas e partículas** seguindo o campo de velocidades (interpolação bilinear)
+- 🎛️ Controles: intensidade do fogo, rajada, fogo on/off e resolução selecionável
 
 ---
 
@@ -112,7 +115,7 @@ python -m http.server 8000
 ### Testes
 
 ```bash
-cargo test   # 28 testes: t-test (13) + poiseuille (4) + couette (3) + backward_step (2) + fire_smoke (6)
+cargo test   # 30 testes: t-test (13) + poiseuille (4) + couette (3) + backward_step (2) + fire_smoke (8)
 ```
 
 O core matemático é isolado do `#[wasm_bindgen]`, permitindo validação nativa em x86.

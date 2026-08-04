@@ -77,6 +77,29 @@ export class FireSmoke {
         wasm.__wbg_firesmoke_free(ptr, 0);
     }
     /**
+     * Apply a Gaussian velocity perturbation (e.g. wind from the mouse) at a
+     * normalized physical point (x, y) ∈ [0,1]², with y = 0 at the floor.
+     * `fx` pushes right, `fy` pushes up. The projection step keeps the
+     * perturbation incompressible, so dragging the mouse creates vortices.
+     * @param {number} x
+     * @param {number} y
+     * @param {number} fx
+     * @param {number} fy
+     */
+    apply_force(x, y, fx, fy) {
+        const ret = wasm.firesmoke_apply_force(this.__wbg_ptr, x, y, fx, fy);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @returns {number}
+     */
+    fire_intensity() {
+        const ret = wasm.firesmoke_fire_intensity(this.__wbg_ptr);
+        return ret;
+    }
+    /**
      * Create a new simulation on an `nx × ny` grid (domain is unit-sized).
      * @param {number} nx
      * @param {number} ny
@@ -117,6 +140,16 @@ export class FireSmoke {
      */
     reset() {
         wasm.firesmoke_reset(this.__wbg_ptr);
+    }
+    /**
+     * Scale the fire source: 0 disables it, 1 is the default, up to 10.
+     * @param {number} factor
+     */
+    set_fire_intensity(factor) {
+        const ret = wasm.firesmoke_set_fire_intensity(this.__wbg_ptr, factor);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
     }
     /**
      * @param {number} t
