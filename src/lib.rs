@@ -6,6 +6,9 @@ pub mod poiseuille;
 pub mod couette;
 pub mod backward_step;
 pub mod siesta_field;
+pub mod fire_smoke;
+
+pub use fire_smoke::*;
 
 // ─── Utility functions ────────────────────────────────────────────────────────
 

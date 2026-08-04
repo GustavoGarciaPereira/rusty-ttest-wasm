@@ -16,6 +16,39 @@ export class Charge {
     y: number;
 }
 
+export class FireSmoke {
+    private constructor();
+    free(): void;
+    [Symbol.dispose](): void;
+    /**
+     * Create a new simulation on an `nx × ny` grid (domain is unit-sized).
+     */
+    static new(nx: number, ny: number): FireSmoke;
+    nx(): number;
+    ny(): number;
+    /**
+     * Render temperature + smoke as an RGBA image (nx × ny × 4 bytes),
+     * zero-copy into a `Uint8ClampedArray` for the Canvas.
+     */
+    render(): Uint8ClampedArray;
+    /**
+     * Reset all fields (velocities, pressure, smoke; temperature back to ambient).
+     */
+    reset(): void;
+    set_temp_amb(t: number): void;
+    smoke(): Float32Array;
+    /**
+     * Advance the simulation by `dt` seconds (Chorin projection).
+     * Internally sub-steps to keep advection (CFL) and explicit diffusion
+     * stable for any positive `dt`.
+     */
+    step(dt: number): void;
+    temp(): Float32Array;
+    temp_amb(): number;
+    velocity_u(): Float32Array;
+    velocity_v(): Float32Array;
+}
+
 export class IndependentResult {
     private constructor();
     free(): void;
@@ -195,6 +228,19 @@ export interface InitOutput {
     readonly generate_field_from_siesta: (a: number, b: number, c: number, d: number, e: number, f: number) => [number, number];
     readonly parse_siesta_out_full: (a: number, b: number) => [number, number];
     readonly trace_field_lines: (a: number, b: number, c: number, d: number, e: number) => [number, number];
+    readonly __wbg_firesmoke_free: (a: number, b: number) => void;
+    readonly firesmoke_new: (a: number, b: number) => [number, number, number];
+    readonly firesmoke_nx: (a: number) => number;
+    readonly firesmoke_ny: (a: number) => number;
+    readonly firesmoke_render: (a: number) => any;
+    readonly firesmoke_reset: (a: number) => void;
+    readonly firesmoke_set_temp_amb: (a: number, b: number) => void;
+    readonly firesmoke_smoke: (a: number) => [number, number];
+    readonly firesmoke_step: (a: number, b: number) => [number, number];
+    readonly firesmoke_temp: (a: number) => [number, number];
+    readonly firesmoke_temp_amb: (a: number) => number;
+    readonly firesmoke_velocity_u: (a: number) => [number, number];
+    readonly firesmoke_velocity_v: (a: number) => [number, number];
     readonly __wbg_get_independentresult_df: (a: number) => number;
     readonly __wbg_get_independentresult_mean_a: (a: number) => number;
     readonly __wbg_get_independentresult_mean_b: (a: number) => number;
@@ -246,8 +292,6 @@ export interface InitOutput {
     readonly compute_backward_step: (a: number, b: number, c: number, d: number, e: number) => [number, number];
     readonly interpolate_velocity: (a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number) => [number, number];
     readonly velocity_at: (a: number, b: number, c: number, d: number) => [number, number];
-    readonly compute_couette: (a: number, b: number, c: number) => [number, number];
-    readonly velocity_analytical_couette: (a: number, b: number, c: number) => number;
     readonly __wbg_charge_free: (a: number, b: number) => void;
     readonly __wbg_get_charge_q: (a: number) => number;
     readonly __wbg_get_charge_x: (a: number) => number;
@@ -269,6 +313,8 @@ export interface InitOutput {
     readonly __wbg_set_poiseuilleparams_mu: (a: number, b: number) => void;
     readonly compute_poiseuille: (a: number, b: number, c: number, d: number) => [number, number];
     readonly velocity_analytical: (a: number, b: number, c: number, d: number) => number;
+    readonly compute_couette: (a: number, b: number, c: number) => [number, number];
+    readonly velocity_analytical_couette: (a: number, b: number, c: number) => number;
     readonly __wbindgen_externrefs: WebAssembly.Table;
     readonly __wbindgen_malloc: (a: number, b: number) => number;
     readonly __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;

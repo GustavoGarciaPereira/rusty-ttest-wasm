@@ -6,7 +6,7 @@ Suite de ferramentas científicas de alta performance rodando no navegador via *
 ![WebAssembly](https://img.shields.io/badge/Target-Wasm32-yellow)
 ![UI](https://img.shields.io/badge/UI-Pico.css-blue)
 ![Deploy](https://img.shields.io/badge/Deploy-GitHub_Pages-green)
-![Tests](https://img.shields.io/badge/Tests-22%2F22-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-28%2F28-brightgreen)
 
 🌐 **[Acessar aplicação](https://gustavogarciapereira.github.io/rusty-ttest-wasm/)**
 
@@ -16,7 +16,7 @@ Suite de ferramentas científicas de alta performance rodando no navegador via *
 
 | # | Página | Descrição |
 |---|---|---|
-| 🏠 | `index.html` | Menu de navegação com 8 cards |
+| 🏠 | `index.html` | Menu de navegação com 11 cards |
 | 📊 | [`ttest.html`](ttest.html) | Testes-t estatísticos (One-sample, Welch, Pareado) |
 | 🧲 | [`campo-eletrico.html`](campo-eletrico.html) | Simulação 2D de campo elétrico com Canvas |
 | 🌊 | [`poiseuille.html`](poiseuille.html) | Poiseuille — perfil parabólico (analítico vs numérico) |
@@ -25,6 +25,7 @@ Suite de ferramentas científicas de alta performance rodando no navegador via *
 | 🎬 | [`couette-visual.html`](couette-visual.html) | Couette — mapa de cores + partículas animadas |
 | 📈 | [`backward-step.html`](backward-step.html) | Degrau — perfis u(y) e p(x) para validação |
 | 🔬 | [`backward-step-visual.html`](backward-step-visual.html) | Degrau — solver SIMPLE 2D + 200 partículas traçadoras |
+| 🔥 | [`fire-smoke.html`](fire-smoke.html) | Fogo & Fumaça 2D — Navier-Stokes transiente + empuxo térmico |
 
 ---
 
@@ -54,6 +55,13 @@ Suite de ferramentas científicas de alta performance rodando no navegador via *
 - Página de perfis: u(y) em 4 estações + p(x) na linha central
 - Proteção de malha (máx 120×60) para evitar estouro de memória WASM
 
+### 🔥 Fogo & Fumaça 2D
+- **Navier-Stokes transiente** com aproximação de Boussinesq (empuxo térmico em v)
+- Projeção de Chorin: advecção upwind + difusão + 20 iterações de Gauss-Seidel por frame
+- Fonte de fogo na base central, resfriamento de Newton, traçador passivo de fumaça
+- Sub-stepping automático (CFL + difusão explícita) — estável para qualquer dt
+- Render `Uint8ClampedArray` direto no Canvas, paleta fogo + escurecimento por fuligem
+
 ---
 
 ## 🏗️ Arquitetura
@@ -65,6 +73,7 @@ src/
 ├── poiseuille.rs       → Poiseuille (analítico + TDMA + bridge WASM)
 ├── couette.rs          → Couette (analítico + TDMA + bridge WASM)
 └── backward_step.rs    → SIMPLE 2D CFD solver (386 linhas)
+└── fire_smoke.rs       → Fogo & Fumaça transiente (Chorin + Boussinesq)
 
 frontend/
 ├── index.html                  → Menu com 8 cards
@@ -103,7 +112,7 @@ python -m http.server 8000
 ### Testes
 
 ```bash
-cargo test   # 22 testes: t-test (13) + poiseuille (4) + couette (3) + backward_step (2)
+cargo test   # 28 testes: t-test (13) + poiseuille (4) + couette (3) + backward_step (2) + fire_smoke (6)
 ```
 
 O core matemático é isolado do `#[wasm_bindgen]`, permitindo validação nativa em x86.

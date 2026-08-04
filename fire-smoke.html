@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fogo &amp; Fumaça 2D — rusty-ttest-wasm</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    body { max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+    .hidden { display: none !important; }
+
+    .slider-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    .slider-grid label { margin-bottom: 0.25rem; font-weight: 600; }
+    .slider-grid input[type="range"] { width: 100%; }
+    .slider-grid .value-display {
+      text-align: right; font-size: 0.85rem;
+      color: var(--pico-muted-color);
+    }
+
+    .controls-row {
+      display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .controls-row label { margin-bottom: 0; }
+
+    #fire-canvas {
+      display: block;
+      border-radius: var(--pico-border-radius);
+      border: 1px solid var(--pico-muted-border-color);
+      width: 100%; max-width: 700px; height: auto;
+      image-rendering: pixelated;
+      background: #0f0f1c;
+    }
+
+    .colorbar {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-top: 0.25rem; font-size: 0.8rem;
+      color: var(--pico-muted-color);
+    }
+    .colorbar .gradient {
+      width: 200px; height: 14px; border-radius: 3px;
+      background: linear-gradient(to right,
+        #0f0f1c, #dc320a, #ff8c00, #ffe650, #ffffff);
+    }
+
+    .status-row {
+      display: flex; flex-wrap: wrap; gap: 1.5rem;
+      font-size: 0.85rem; color: var(--pico-muted-color);
+      margin-top: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <p>
+      <a href="index.html">&larr; Voltar ao menu</a>
+      <button id="btn-theme-toggle" class="secondary" style="float:right; font-size:1.2rem;" title="Alternar tema claro/escuro">🌙</button>
+    </p>
+    <h1>🔥 Fogo &amp; Fumaça 2D — Visualização Interativa</h1>
+    <p>Navier-Stokes transiente com empuxo térmico (Boussinesq) e traçador de fumaça — Rust + WASM + Canvas</p>
+  </header>
+
+  <main>
+    <article>
+      <div class="slider-grid">
+        <div>
+          <label for="speed-slider">Velocidade da simulação</label>
+          <input type="range" id="speed-slider" min="0.1" max="3" step="0.1" value="1" />
+          <div class="value-display"><span id="speed-value">1.0</span>×</div>
+        </div>
+        <div>
+          <label for="amb-slider">Temperatura ambiente <em>T<sub>amb</sub></em></label>
+          <input type="range" id="amb-slider" min="5" max="35" step="0.5" value="20" />
+          <div class="value-display"><span id="amb-value">20</span> °C</div>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button id="btn-pause">⏸ Pausar</button>
+        <button id="btn-reset" class="secondary">↺ Reiniciar</button>
+        <small class="hint" style="margin:0;">O fogo acende automaticamente na base central — o ar quente sobe e a fumaça escapa pelo topo</small>
+      </div>
+
+      <canvas id="fire-canvas" width="80" height="50"></canvas>
+      <div class="colorbar">
+        <span>frio</span>
+        <span class="gradient"></span>
+        <span>quente</span>
+      </div>
+
+      <div class="status-row">
+        <span>⏱ <span id="sim-time">0.0</span> s simulados</span>
+        <span>🎞 <span id="fps-label">—</span> fps</span>
+        <span>🔥 ΔT máx: <span id="dT-label">—</span> °C</span>
+      </div>
+    </article>
+
+    <div id="error-box" class="hidden">
+      <article style="border-color: var(--pico-color-red-500);">
+        <strong>Erro:</strong> <span id="error-msg"></span>
+      </article>
+    </div>
+  </main>
+
+  <!-- Aviso para file:// roda mesmo com o ES module bloqueado por CORS -->
+  <script>
+    if (location.protocol === 'file:') {
+      document.addEventListener('DOMContentLoaded', () => {
+        const box = document.getElementById('error-box');
+        const msg = document.getElementById('error-msg');
+        if (box && msg) {
+          box.classList.remove('hidden');
+          msg.textContent = 'Abra esta página por um servidor HTTP: na raiz do projeto, rode "python3 -m http.server 8000" e acesse http://localhost:8000/fire-smoke.html. Abrir o arquivo direto do disco (file://) bloqueia o WebAssembly (CORS).';
+        }
+      });
+    }
+  </script>
+
+  <script type="module">
+    import init, { FireSmoke } from './pkg/rusty_ttest_wasm.js';
+
+    await init();
+
+    // ── Theme toggle ──────────────────────────────────────────────────────────
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('btn-theme-toggle');
+    const saved = localStorage.getItem('theme');
+    if (saved === 'light' || saved === 'dark') html.setAttribute('data-theme', saved);
+    themeBtn.textContent = html.getAttribute('data-theme') === 'light' ? '☀️' : '🌙';
+    themeBtn.addEventListener('click', () => {
+      const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      html.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+      themeBtn.textContent = next === 'light' ? '☀️' : '🌙';
+    });
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const speedSlider = document.getElementById('speed-slider');
+    const ambSlider   = document.getElementById('amb-slider');
+    const speedValue  = document.getElementById('speed-value');
+    const ambValue    = document.getElementById('amb-value');
+    const pauseBtn    = document.getElementById('btn-pause');
+    const resetBtn    = document.getElementById('btn-reset');
+    const canvas      = document.getElementById('fire-canvas');
+    const ctx         = canvas.getContext('2d');
+    const errorBox    = document.getElementById('error-box');
+    const errorMsg    = document.getElementById('error-msg');
+    const simTimeEl   = document.getElementById('sim-time');
+    const fpsEl       = document.getElementById('fps-label');
+    const dTEl        = document.getElementById('dT-label');
+
+    // ── Parameters ────────────────────────────────────────────────────────────
+    let speedScale = parseFloat(speedSlider.value);
+    let simTime = 0;
+    let running = true;
+
+    speedSlider.addEventListener('input', () => {
+      speedScale = parseFloat(speedSlider.value);
+      speedValue.textContent = speedSlider.value;
+    });
+    ambSlider.addEventListener('input', () => {
+      ambValue.textContent = ambSlider.value;
+      if (sim) sim.set_temp_amb(parseFloat(ambSlider.value));
+    });
+
+    // ── Simulation ────────────────────────────────────────────────────────────
+    let sim = null;
+    const NX = 80, NY = 50;
+    const BASE_DT = 1 / 60; // seconds of physics per frame at 1×
+
+    // ES modules (e o fetch do .wasm) são bloqueados por CORS em file://
+    if (location.protocol !== 'http:' && location.protocol !== 'https:') {
+      showError('Abra esta página por um servidor HTTP (ex.: "python3 -m http.server 8000" na raiz do projeto e acesse http://localhost:8000/fire-smoke.html). Abrir o arquivo direto do disco (file://) bloqueia o WebAssembly.');
+      throw new Error('file:// não suportado');
+    }
+
+    function createSim() {
+      try {
+        sim = FireSmoke.new(NX, NY);
+        sim.set_temp_amb(parseFloat(ambSlider.value));
+      } catch (e) {
+        showError(e?.message ?? String(e));
+        sim = null;
+      }
+    }
+
+    function resetSim() {
+      if (sim) {
+        sim.reset();
+        sim.set_temp_amb(parseFloat(ambSlider.value));
+      }
+      simTime = 0;
+    }
+
+    // ── Animation loop ────────────────────────────────────────────────────────
+    let lastTime = null;
+    let fpsAccum = 0, fpsFrames = 0, fpsLast = 0;
+
+    function animate(timestamp) {
+      if (!running) { lastTime = null; requestAnimationFrame(animate); return; }
+
+      if (lastTime === null) lastTime = timestamp;
+      let dt = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+      if (!(dt > 0)) dt = BASE_DT;   // timestamps idênticos (ex.: aba oculta)
+      if (dt > 0.1) dt = BASE_DT;
+
+      if (sim) {
+        try {
+          sim.step(dt * speedScale);
+        } catch (e) {
+          showError(e?.message ?? String(e));
+          running = false;
+          pauseBtn.textContent = '▶ Retomar';
+          return;
+        }
+        simTime += dt * speedScale;
+        ctx.putImageData(new ImageData(sim.render(), NX, NY), 0, 0);
+
+        // Status updates (throttled to ~4 Hz)
+        fpsAccum += dt; fpsFrames++;
+        if (fpsAccum >= 0.25) {
+          fpsEl.textContent = Math.round(fpsFrames / fpsAccum);
+          fpsAccum = 0; fpsFrames = 0;
+          simTimeEl.textContent = simTime.toFixed(1);
+          const t = sim.temp();
+          let dTmax = 0;
+          for (let k = 0; k < t.length; k++) {
+            const d = t[k] - sim.temp_amb();
+            if (d > dTmax) dTmax = d;
+          }
+          dTEl.textContent = dTmax.toFixed(1);
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // ── Buttons ───────────────────────────────────────────────────────────────
+    pauseBtn.addEventListener('click', () => {
+      running = !running;
+      pauseBtn.textContent = running ? '⏸ Pausar' : '▶ Retomar';
+    });
+    resetBtn.addEventListener('click', resetSim);
+
+    // ── Error handler ─────────────────────────────────────────────────────────
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    createSim();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

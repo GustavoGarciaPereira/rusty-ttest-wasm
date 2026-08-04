@@ -58,6 +58,130 @@ export class Charge {
 }
 if (Symbol.dispose) Charge.prototype[Symbol.dispose] = Charge.prototype.free;
 
+export class FireSmoke {
+    static __wrap(ptr) {
+        ptr = ptr >>> 0;
+        const obj = Object.create(FireSmoke.prototype);
+        obj.__wbg_ptr = ptr;
+        FireSmokeFinalization.register(obj, obj.__wbg_ptr, obj);
+        return obj;
+    }
+    __destroy_into_raw() {
+        const ptr = this.__wbg_ptr;
+        this.__wbg_ptr = 0;
+        FireSmokeFinalization.unregister(this);
+        return ptr;
+    }
+    free() {
+        const ptr = this.__destroy_into_raw();
+        wasm.__wbg_firesmoke_free(ptr, 0);
+    }
+    /**
+     * Create a new simulation on an `nx × ny` grid (domain is unit-sized).
+     * @param {number} nx
+     * @param {number} ny
+     * @returns {FireSmoke}
+     */
+    static new(nx, ny) {
+        const ret = wasm.firesmoke_new(nx, ny);
+        if (ret[2]) {
+            throw takeFromExternrefTable0(ret[1]);
+        }
+        return FireSmoke.__wrap(ret[0]);
+    }
+    /**
+     * @returns {number}
+     */
+    nx() {
+        const ret = wasm.firesmoke_nx(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * @returns {number}
+     */
+    ny() {
+        const ret = wasm.firesmoke_ny(this.__wbg_ptr);
+        return ret >>> 0;
+    }
+    /**
+     * Render temperature + smoke as an RGBA image (nx × ny × 4 bytes),
+     * zero-copy into a `Uint8ClampedArray` for the Canvas.
+     * @returns {Uint8ClampedArray}
+     */
+    render() {
+        const ret = wasm.firesmoke_render(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * Reset all fields (velocities, pressure, smoke; temperature back to ambient).
+     */
+    reset() {
+        wasm.firesmoke_reset(this.__wbg_ptr);
+    }
+    /**
+     * @param {number} t
+     */
+    set_temp_amb(t) {
+        wasm.firesmoke_set_temp_amb(this.__wbg_ptr, t);
+    }
+    /**
+     * @returns {Float32Array}
+     */
+    smoke() {
+        const ret = wasm.firesmoke_smoke(this.__wbg_ptr);
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
+     * Advance the simulation by `dt` seconds (Chorin projection).
+     * Internally sub-steps to keep advection (CFL) and explicit diffusion
+     * stable for any positive `dt`.
+     * @param {number} dt
+     */
+    step(dt) {
+        const ret = wasm.firesmoke_step(this.__wbg_ptr, dt);
+        if (ret[1]) {
+            throw takeFromExternrefTable0(ret[0]);
+        }
+    }
+    /**
+     * @returns {Float32Array}
+     */
+    temp() {
+        const ret = wasm.firesmoke_temp(this.__wbg_ptr);
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
+     * @returns {number}
+     */
+    temp_amb() {
+        const ret = wasm.firesmoke_temp_amb(this.__wbg_ptr);
+        return ret;
+    }
+    /**
+     * @returns {Float32Array}
+     */
+    velocity_u() {
+        const ret = wasm.firesmoke_velocity_u(this.__wbg_ptr);
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+    /**
+     * @returns {Float32Array}
+     */
+    velocity_v() {
+        const ret = wasm.firesmoke_velocity_v(this.__wbg_ptr);
+        var v1 = getArrayF32FromWasm0(ret[0], ret[1]).slice();
+        wasm.__wbindgen_free(ret[0], ret[1] * 4, 4);
+        return v1;
+    }
+}
+if (Symbol.dispose) FireSmoke.prototype[Symbol.dispose] = FireSmoke.prototype.free;
+
 export class IndependentResult {
     static __wrap(ptr) {
         ptr = ptr >>> 0;
@@ -841,6 +965,9 @@ function __wbg_get_imports() {
 const ChargeFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_charge_free(ptr >>> 0, 1));
+const FireSmokeFinalization = (typeof FinalizationRegistry === 'undefined')
+    ? { register: () => {}, unregister: () => {} }
+    : new FinalizationRegistry(ptr => wasm.__wbg_firesmoke_free(ptr >>> 0, 1));
 const IndependentResultFinalization = (typeof FinalizationRegistry === 'undefined')
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_independentresult_free(ptr >>> 0, 1));
@@ -854,6 +981,11 @@ const PoiseuilleParamsFinalization = (typeof FinalizationRegistry === 'undefined
     ? { register: () => {}, unregister: () => {} }
     : new FinalizationRegistry(ptr => wasm.__wbg_poiseuilleparams_free(ptr >>> 0, 1));
 
+function getArrayF32FromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    return getFloat32ArrayMemory0().subarray(ptr / 4, ptr / 4 + len);
+}
+
 function getArrayF64FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getFloat64ArrayMemory0().subarray(ptr / 8, ptr / 8 + len);
@@ -862,6 +994,14 @@ function getArrayF64FromWasm0(ptr, len) {
 function getArrayU8FromWasm0(ptr, len) {
     ptr = ptr >>> 0;
     return getUint8ArrayMemory0().subarray(ptr / 1, ptr / 1 + len);
+}
+
+let cachedFloat32ArrayMemory0 = null;
+function getFloat32ArrayMemory0() {
+    if (cachedFloat32ArrayMemory0 === null || cachedFloat32ArrayMemory0.byteLength === 0) {
+        cachedFloat32ArrayMemory0 = new Float32Array(wasm.memory.buffer);
+    }
+    return cachedFloat32ArrayMemory0;
 }
 
 let cachedFloat64ArrayMemory0 = null;
@@ -968,6 +1108,7 @@ let wasmModule, wasm;
 function __wbg_finalize_init(instance, module) {
     wasm = instance.exports;
     wasmModule = module;
+    cachedFloat32ArrayMemory0 = null;
     cachedFloat64ArrayMemory0 = null;
     cachedUint8ArrayMemory0 = null;
     wasm.__wbindgen_start();
