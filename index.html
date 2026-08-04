@@ -3,103 +3,140 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>rusty-ttest-wasm</title>
+  <title>rusty-ttest-wasm — Menu</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
   <style>
-    body { max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
-    header { text-align: center; margin-bottom: 2.5rem; }
+    body { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    header { text-align: center; margin-bottom: 3rem; }
+    header nav { justify-content: center; margin-top: 1.5rem; }
+    header nav ul { flex-wrap: wrap; }
+    section { margin-bottom: 3rem; }
+    section h2 {
+      font-size: 1.3rem;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--pico-muted-border-color);
+    }
     .menu-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
     }
     .menu-card {
-      text-align: center;
-      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      padding: 1.5rem 1.25rem;
+      margin: 0;
     }
-    .menu-card .icon { font-size: 3rem; display: block; margin-bottom: 0.75rem; }
-    .menu-card h3 { margin-bottom: 0.5rem; }
-    .menu-card p  { color: var(--pico-muted-color); margin-bottom: 1.25rem; }
+    .menu-card .icon { font-size: 2.5rem; line-height: 1; margin-bottom: 0.75rem; }
+    .menu-card h3 { font-size: 1.05rem; margin-bottom: 0.4rem; }
+    .menu-card p {
+      flex-grow: 1;
+      font-size: 0.9rem;
+      color: var(--pico-muted-color);
+      margin-bottom: 1rem;
+    }
+    .menu-card a { width: 100%; }
   </style>
 </head>
 <body>
   <header>
     <h1>🦀 rusty-ttest-wasm</h1>
     <p>Ferramentas científicas de alta performance — Rust + WebAssembly</p>
+    <nav aria-label="Categorias">
+      <ul>
+        <li><a href="#estatistica">📊 Estatística</a></li>
+        <li><a href="#eletromagnetismo">⚡ Eletromagnetismo</a></li>
+        <li><a href="#fluidos">🌊 Mecânica dos Fluidos</a></li>
+      </ul>
+    </nav>
   </header>
 
   <main>
-    <div class="menu-grid">
-      <article class="menu-card">
-        <span class="icon">📊</span>
-        <h3>Testes-t Estatísticos</h3>
-        <p>One-sample, duas amostras independentes (Welch) e pareado — com P-value e upload de CSV.</p>
-        <a role="button" href="ttest.html">Abrir Ferramenta</a>
-      </article>
+    <section id="estatistica">
+      <h2>📊 Estatística</h2>
+      <div class="menu-grid">
+        <article class="menu-card">
+          <span class="icon">📈</span>
+          <h3>Testes-t</h3>
+          <p>One-sample, duas amostras independentes (Welch) e pareado — com P-value e upload de CSV.</p>
+          <a role="button" class="outline" href="ttest.html">Abrir Ferramenta</a>
+        </article>
+      </div>
+    </section>
 
-      <article class="menu-card">
-        <span class="icon">🧲</span>
-        <h3>Mapa de Campo Elétrico</h3>
-        <p>Simulação 2D do campo elétrico gerado por cargas pontuais, renderizado direto no Canvas.</p>
-        <a role="button" href="campo-eletrico.html">Abrir Ferramenta</a>
-      </article>
+    <section id="eletromagnetismo">
+      <h2>⚡ Eletromagnetismo</h2>
+      <div class="menu-grid">
+        <article class="menu-card">
+          <span class="icon">🧲</span>
+          <h3>Mapa de Campo Elétrico</h3>
+          <p>Simulação 2D do campo gerado por cargas pontuais, renderizada direto no Canvas.</p>
+          <a role="button" class="outline" href="campo-eletrico.html">Abrir Ferramenta</a>
+        </article>
 
-      <article class="menu-card">
-        <span class="icon">🌊</span>
-        <h3>Escoamento de Poiseuille</h3>
-        <p>Perfil de velocidade em tubo cilíndrico — solução analítica vs numérica (diferenças finitas + TDMA).</p>
-        <a role="button" href="poiseuille.html">Abrir Ferramenta</a>
-      </article>
+        <article class="menu-card">
+          <span class="icon">⚛️</span>
+          <h3>SIESTA Field</h3>
+          <p>Carregue um arquivo <code>.out</code> do SIESTA e visualize o campo das cargas atômicas.</p>
+          <a role="button" class="outline" href="siesta-field.html">Abrir Ferramenta</a>
+        </article>
 
-      <article class="menu-card">
-        <span class="icon">🎨</span>
-        <h3>Poiseuille Visual</h3>
-        <p>Mapa de cores do tubo + partículas animadas. Mexa nos sliders e veja o fluxo em tempo real.</p>
-        <a role="button" href="poiseuille-visual.html">Abrir Ferramenta</a>
-      </article>
+        <article class="menu-card">
+          <span class="icon">🧬</span>
+          <h3>SIESTA 3D</h3>
+          <p>Visualização 3D com Three.js: átomos, vetores de campo e linhas de campo traçadas via Rust.</p>
+          <a role="button" class="outline" href="siesta-field-3d.html">Abrir Ferramenta</a>
+        </article>
+      </div>
+    </section>
 
-      <article class="menu-card">
-        <span class="icon">📐</span>
-        <h3>Escoamento de Couette</h3>
-        <p>Perfil linear entre placas paralelas — solução analítica vs numérica (diferenças finitas + TDMA).</p>
-        <a role="button" href="couette.html">Abrir Ferramenta</a>
-      </article>
+    <section id="fluidos">
+      <h2>🌊 Mecânica dos Fluidos</h2>
+      <div class="menu-grid">
+        <article class="menu-card">
+          <span class="icon">🌊</span>
+          <h3>Poiseuille — Perfis</h3>
+          <p>Perfil parabólico em tubo cilíndrico — solução analítica vs numérica (diferenças finitas + TDMA).</p>
+          <a role="button" class="outline" href="poiseuille.html">Abrir Ferramenta</a>
+        </article>
 
-      <article class="menu-card">
-        <span class="icon">🎬</span>
-        <h3>Couette Visual</h3>
-        <p>Mapa de cores do canal + partículas arrastadas pela placa superior. Visualização em tempo real.</p>
-        <a role="button" href="couette-visual.html">Abrir Ferramenta</a>
-      </article>
+        <article class="menu-card">
+          <span class="icon">🎨</span>
+          <h3>Poiseuille — Visual</h3>
+          <p>Mapa de cores do tubo + partículas animadas. Sliders com atualização em tempo real.</p>
+          <a role="button" class="outline" href="poiseuille-visual.html">Abrir Ferramenta</a>
+        </article>
 
-      <article class="menu-card">
-        <span class="icon">🌀</span>
-        <h3>Degrau Retangular (Visual)</h3>
-        <p>Solver SIMPLE 2D para escoamento com degrau + partículas traçadoras (backward-facing step).</p>
-        <a role="button" href="backward-step-visual.html">Abrir Ferramenta</a>
-      </article>
+        <article class="menu-card">
+          <span class="icon">📐</span>
+          <h3>Couette — Perfis</h3>
+          <p>Perfil linear entre placas paralelas — solução analítica vs numérica (diferenças finitas + TDMA).</p>
+          <a role="button" class="outline" href="couette.html">Abrir Ferramenta</a>
+        </article>
 
-      <article class="menu-card">
-        <span class="icon">📈</span>
-        <h3>Degrau — Perfis</h3>
-        <p>Perfis de velocidade u(y) em estações x e queda de pressão p(x) para validação do solver.</p>
-        <a role="button" href="backward-step.html">Abrir Ferramenta</a>
-      </article>
+        <article class="menu-card">
+          <span class="icon">🎬</span>
+          <h3>Couette — Visual</h3>
+          <p>Mapa de cores do canal + partículas arrastadas pela placa superior. Visualização em tempo real.</p>
+          <a role="button" class="outline" href="couette-visual.html">Abrir Ferramenta</a>
+        </article>
 
-      <article class="menu-card">
-        <span class="icon">⚛️</span>
-        <h3>SIESTA Field</h3>
-        <p>Carregue um arquivo <code>.out</code> do SIESTA e visualize o campo elétrico das cargas atômicas.</p>
-        <a role="button" href="siesta-field.html">Abrir Ferramenta</a>
-      </article>
+        <article class="menu-card">
+          <span class="icon">🌀</span>
+          <h3>Degrau — Visual</h3>
+          <p>Solver SIMPLE 2D para escoamento com degrau + 200 partículas traçadoras (backward-facing step).</p>
+          <a role="button" class="outline" href="backward-step-visual.html">Abrir Ferramenta</a>
+        </article>
 
-      <article class="menu-card">
-        <span class="icon">🧬</span>
-        <h3>SIESTA 3D</h3>
-        <p>Visualização 3D com Three.js: átomos, vetores de campo e linhas de campo traçadas via Rust.</p>
-        <a role="button" href="siesta-field-3d.html">Abrir Ferramenta</a>
-      </article>
-    </div>
+        <article class="menu-card">
+          <span class="icon">📈</span>
+          <h3>Degrau — Perfis</h3>
+          <p>Perfis de velocidade u(y) em estações x e queda de pressão p(x) para validação do solver.</p>
+          <a role="button" class="outline" href="backward-step.html">Abrir Ferramenta</a>
+        </article>
+      </div>
+    </section>
   </main>
 </body>
 </html>
